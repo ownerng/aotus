@@ -48,6 +48,25 @@ func TestDataDirIsOwnerOnly(t *testing.T) {
 	}
 }
 
+func TestDatabaseFilesAreOwnerOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits do not apply on Windows")
+	}
+	s := openTemp(t)
+	if _, err := s.DB().ExecContext(context.Background(), `INSERT INTO app_meta (key, value) VALUES ('k', 'v')`); err != nil {
+		t.Fatal(err) // makes SQLite create the -wal and -shm files
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		fi, err := os.Stat(s.Layout().Database() + suffix)
+		if err != nil {
+			continue // SQLite may not have created it yet
+		}
+		if fi.Mode().Perm() != 0o600 {
+			t.Errorf("aotus.db%s mode = %o, want 600", suffix, fi.Mode().Perm())
+		}
+	}
+}
+
 func TestOpenUsesWAL(t *testing.T) {
 	s := openTemp(t)
 	var mode string

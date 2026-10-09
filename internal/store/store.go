@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"runtime"
 
 	"aotus/internal/datadir"
 
@@ -22,6 +24,9 @@ func Open(ctx context.Context, layout datadir.Layout) (*Store, error) {
 	if err := layout.Ensure(); err != nil {
 		return nil, err
 	}
+	if err := restrictDatabaseFile(layout.Database()); err != nil {
+		return nil, err
+	}
 	db, err := sql.Open("sqlite", dsn(layout.Database()))
 	if err != nil {
 		return nil, fmt.Errorf("store: opening %s: %w", layout.Database(), err)
@@ -36,6 +41,26 @@ func Open(ctx context.Context, layout datadir.Layout) (*Store, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// restrictDatabaseFile creates the database file with owner-only permissions
+// before SQLite does (SQLite would use the umask and give 0644), and tightens
+// an existing one. SQLite gives its -wal and -shm files the same permissions.
+// The data directory is already 0700; this is defense in depth.
+func restrictDatabaseFile(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600) //nolint:gosec // path is inside the data directory
+	if err != nil {
+		return fmt.Errorf("store: creating %s: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(path, 0o600); err != nil {
+			return fmt.Errorf("store: restricting %s: %w", path, err)
+		}
+	}
+	return nil
 }
 
 // dsn applies the pragmas to every connection the pool opens.

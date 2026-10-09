@@ -525,7 +525,7 @@
     "id": "P1-013",
     "phase": 1,
     "title": "Daemon lifecycle and local network access",
-    "status": "todo",
+    "status": "done",
     "requirements": [
       "F17",
       "S1"
@@ -568,7 +568,8 @@
     "docs": [
       "docs/ARCHITECTURE.md",
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-014",
