@@ -56,8 +56,9 @@
     },
     {
       "package": "internal/provider",
-      "why": "adapters and profiles start processes only through proc and know nothing about the rest of the daemon",
+      "why": "adapters and profiles start processes only through proc and know nothing about the rest of the daemon; its test-support sub-package providertest may import the parent",
       "may_import": [
+        "internal/provider",
         "internal/proc",
         "internal/version"
       ]

@@ -140,7 +140,7 @@
     "id": "P1-004",
     "phase": 1,
     "title": "Provider interface, normalized events and contract suite",
-    "status": "in_progress",
+    "status": "done",
     "depends_on": [
       "P1-002"
     ],
@@ -172,7 +172,8 @@
     "docs": [
       "docs/ARCHITECTURE.md",
       "docs/research/cli-contracts.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-005",
