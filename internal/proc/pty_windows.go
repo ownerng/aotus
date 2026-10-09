@@ -101,6 +101,10 @@ func (c *conPTY) start(spec PTYSpec) error {
 	if err != nil {
 		return err
 	}
+	var envPtr *uint16 = &env[0]
+	if strings.Contains(variant, "noenv") {
+		envPtr = nil
+	}
 
 	job, err := newKillOnCloseJob()
 	if err != nil {
@@ -111,12 +115,15 @@ func (c *conPTY) start(spec PTYSpec) error {
 	if strings.Contains(variant, "nosusp") {
 		flags &^= windows.CREATE_SUSPENDED
 	}
-	if err := windows.CreateProcess(nil, cmdline, nil, nil, false, flags, &env[0], dir, &si.StartupInfo, &pi); err != nil {
+	if err := windows.CreateProcess(nil, cmdline, nil, nil, false, flags, envPtr, dir, &si.StartupInfo, &pi); err != nil {
 		_ = windows.CloseHandle(job)
 		return err
 	}
 	// Created suspended so that it is in the job before its first instruction:
 	// nothing it starts can escape.
+	if strings.Contains(variant, "nojob") {
+		goto skipjob
+	}
 	if err := windows.AssignProcessToJobObject(job, pi.Process); err != nil {
 		_ = windows.TerminateProcess(pi.Process, 1)
 		_ = windows.CloseHandle(pi.Process)
@@ -124,6 +131,7 @@ func (c *conPTY) start(spec PTYSpec) error {
 		_ = windows.CloseHandle(job)
 		return err
 	}
+skipjob:
 	if strings.Contains(variant, "nosusp") {
 		_ = windows.CloseHandle(pi.Thread)
 		c.proc, c.job, c.pid = pi.Process, job, int(pi.ProcessId)

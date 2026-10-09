@@ -14,8 +14,8 @@ jobs:
       - name: Variants
         shell: bash
         run: |
-          for v in base keep nosusp keep-nosusp; do
+          for v in noenv nojob noenv-nojob noenv-nojob-nosusp-keep; do
             echo "=== variant $v"
-            AOTUS_CONPTY_VARIANT=$v go test -count=1 -run 'TestPTYWindowsCmdEcho' -v ./internal/proc 2>&1 | grep -E "^(---|ok|FAIL|\s+pty_windows)|DEBUG" | cut -c1-250 || true
+            AOTUS_CONPTY_VARIANT=$v go test -count=1 -run 'TestPTYWindowsCmdEcho' -v ./internal/proc 2>&1 | grep -E "^(---|ok|FAIL|\s+pty_windows)|DEBUG" | cut -c1-700 || true
           done
           systeminfo | grep -E "^OS (Name|Version)" || true
