@@ -959,7 +959,7 @@
     "id": "P1-021",
     "phase": 1,
     "title": "proc: pseudo-terminal on Windows (ConPTY), verified on Windows",
-    "status": "blocked",
+    "status": "in_progress",
     "depends_on": [
       "P1-018",
       "P1-020"

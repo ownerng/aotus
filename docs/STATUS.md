@@ -16,7 +16,7 @@
 | 4 | Learn | not planned | open |
 | 5 | Teams | not planned | open |
 
-## Blocked
+## In progress
 
 - `P1-021` proc: pseudo-terminal on Windows (ConPTY), verified on Windows
 
@@ -54,7 +54,7 @@
 | P1-018 | done | Packaging and CI on every operating system | N8 | 2026-10-09 |
 | P1-019 | done | Performance budgets as tests | N1, N2, N3, N4, N6, N7 | 2026-10-09 |
 | P1-020 | done | proc: pseudo-terminal hosting on Linux and macOS | F6, F16 | 2026-10-09 |
-| P1-021 | blocked | proc: pseudo-terminal on Windows (ConPTY), verified on Windows | F6, F16, N8 |  |
+| P1-021 | in_progress | proc: pseudo-terminal on Windows (ConPTY), verified on Windows | F6, F16, N8 |  |
 | P1-022 | done | Terminal-mode sessions and in-profile login for Claude Code and Codex | F1, F6, F16, S2 | 2026-10-09 |
 
 ## Requirement coverage
