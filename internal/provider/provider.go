@@ -68,6 +68,9 @@ type SessionRequest struct {
 	// they come from the employee's permissions.
 	PermissionMode string
 	AllowedTools   []string
+	// ExtraEnv is added to the profile's environment (for example the
+	// employee's private temporary directory). It wins over the profile's.
+	ExtraEnv []string
 }
 
 // Provider adapts one family of CLIs (or an API) to Aotus.

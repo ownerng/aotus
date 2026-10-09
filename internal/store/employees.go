@@ -30,18 +30,23 @@ type EmployeeRow struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      time.Time
+	// ProviderSessionID is the provider's own ID of the employee's conversation,
+	// kept so it can be resumed. RunState says whether the employee had a
+	// terminal session running (and so should get it back after a restart).
+	ProviderSessionID string
+	RunState          string
 }
 
-const employeeColumns = `id, slug, name, role, system_prompt, profile_id, state, permission_mode, allowed_tools, created_at, updated_at, deleted_at`
+const employeeColumns = `id, slug, name, role, system_prompt, profile_id, state, permission_mode, allowed_tools, created_at, updated_at, deleted_at, provider_session_id, run_state`
 
 // CreateEmployee inserts an employee. ErrConflict if another live employee has
 // the same slug; ErrInUse if the profile does not exist.
 func (s *Store) CreateEmployee(ctx context.Context, e EmployeeRow) error {
 	tools, _ := json.Marshal(nonNilStrings(e.AllowedTools))
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO employees (`+employeeColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		INSERT INTO employees (`+employeeColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		e.ID, e.Slug, e.Name, e.Role, e.SystemPrompt, e.ProfileID, e.State, e.PermissionMode, string(tools),
-		timeText(e.CreatedAt), timeText(e.UpdatedAt), timeText(e.DeletedAt))
+		timeText(e.CreatedAt), timeText(e.UpdatedAt), timeText(e.DeletedAt), e.ProviderSessionID, runStateOrDefault(e.RunState))
 	return classify(err)
 }
 
@@ -49,7 +54,7 @@ func scanEmployee(r scanner) (EmployeeRow, error) {
 	var e EmployeeRow
 	var tools, created, updated, deleted string
 	if err := r.Scan(&e.ID, &e.Slug, &e.Name, &e.Role, &e.SystemPrompt, &e.ProfileID, &e.State, &e.PermissionMode,
-		&tools, &created, &updated, &deleted); err != nil {
+		&tools, &created, &updated, &deleted, &e.ProviderSessionID, &e.RunState); err != nil {
 		return EmployeeRow{}, err
 	}
 	if err := json.Unmarshal([]byte(tools), &e.AllowedTools); err != nil {
@@ -108,4 +113,29 @@ func (s *Store) SetEmployeeState(ctx context.Context, id, state string, at time.
 		return ErrNotFound
 	}
 	return nil
+}
+
+// Run states of an employee's terminal session.
+const (
+	RunStopped = "stopped"
+	RunRunning = "running"
+)
+
+func runStateOrDefault(s string) string {
+	if s == "" {
+		return RunStopped
+	}
+	return s
+}
+
+// SetProviderSession remembers the provider's session ID of an employee.
+func (s *Store) SetProviderSession(ctx context.Context, employeeID, sessionID string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE employees SET provider_session_id = ? WHERE id = ?`, sessionID, employeeID)
+	return err
+}
+
+// SetRunState records whether the employee has a terminal session running.
+func (s *Store) SetRunState(ctx context.Context, employeeID, state string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE employees SET run_state = ? WHERE id = ?`, state, employeeID)
+	return err
 }

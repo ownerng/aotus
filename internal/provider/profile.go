@@ -190,3 +190,22 @@ func ProfileEnv(p Profile, lookup func(string) (string, bool)) []string {
 
 // OSEnv is the lookup that reads the daemon's real environment.
 func OSEnv(name string) (string, bool) { return os.LookupEnv(name) }
+
+// MergeEnv combines environments; for a name present in both, the later one
+// wins. The result is sorted, so it is deterministic.
+func MergeEnv(base, extra []string) []string {
+	byName := map[string]string{}
+	for _, list := range [][]string{base, extra} {
+		for _, kv := range list {
+			if name, _, ok := strings.Cut(kv, "="); ok && name != "" {
+				byName[name] = kv
+			}
+		}
+	}
+	out := make([]string, 0, len(byName))
+	for _, kv := range byName {
+		out = append(out, kv)
+	}
+	sort.Strings(out)
+	return out
+}

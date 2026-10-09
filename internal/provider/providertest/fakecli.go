@@ -56,6 +56,13 @@ const (
 	Interruptible Scenario = "interruptible"
 	// Replay prints the file named by EnvFakeReplay (a recorded stream).
 	Replay Scenario = "replay"
+	// Chatty sends 1500 text events, one character each, and completes.
+	Chatty Scenario = "chatty"
+	// Slow works for 300 ms and then completes.
+	Slow Scenario = "slow"
+	// Crash records that it was launched (a line appended to the file named by
+	// EnvFakePidFile) and exits with code 1 at once.
+	Crash Scenario = "crash"
 	// TUI imitates an interactive terminal program: it prints how it was
 	// started, answers each typed line, and ends on /exit. "/size" prints the
 	// size of its terminal.
@@ -228,6 +235,27 @@ func runFakeCLI(args []string) {
 			out.text("ENV:" + kv)
 		}
 		out.done()
+	case Chatty:
+		out.session(session)
+		for i := 0; i < 1500; i++ {
+			out.text("x")
+		}
+		out.done()
+	case Slow:
+		out.session(session)
+		out.text("working")
+		time.Sleep(300 * time.Millisecond)
+		out.text("finished")
+		out.done()
+	case Crash:
+		if pidfile != "" {
+			if f, err := os.OpenFile(pidfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
+				_, _ = f.WriteString("launch\n")
+				_ = f.Close()
+			}
+		}
+		fmt.Print("crashing\r\n")
+		os.Exit(1)
 	case TUI:
 		runFakeTUI(args, session)
 	case Replay:

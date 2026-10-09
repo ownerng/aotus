@@ -80,6 +80,17 @@ Restricted imports: `os/exec` only in `proc`, `harness`, `bench`. `import "C"` n
 - **Contract suite** (`internal/provider/providertest`): `RunContract` checks normalized events, resume, cancel killing the process tree, interrupt, no environment leak, closed stdin, one turn at a time, and close. Every adapter must pass it with a fake CLI that speaks its dialect. The fake provider is the same shared runner over a scripted fake CLI (the test binary itself, see `MaybeRunFakeCLI`).
 - `ModeTerminal` sessions expose the raw pseudo-terminal through the `Terminal` interface instead of events; their contract is added with the PTY work in P1-006.
 
+## The session manager (`internal/orchestrator`)
+
+`Manager` keeps each employee's session alive in the background, independent of any client:
+
+- **Turns** (structured and API modes): `Send` records a queued turn and returns its ID at once. The turn waits in a FIFO line for one of `MaxConcurrentTurns` slots (so at most N CLIs run at once; the rest wait, they do not fail), runs, and ends as `completed`, `canceled`, `failed` or `interrupted`. An employee has one turn at a time (`ErrBusy`). `CancelTurn` removes a queued turn or kills a running one's whole process tree.
+- **Terminal sessions**: `StartTerminal` launches the official interactive program in a pseudo-terminal that the daemon owns. It runs with no window open; `Terminal` returns it for a viewer, who gets the replay first. `Send` on such an employee types the prompt.
+- **Updates**: `Subscribe` delivers `Update`s (turn queued/started/ended, each provider event, session state) in order with a sequence number. A subscriber more than `SubscriberBuffer` behind is disconnected, never waited for; it resubscribes and reloads from the history.
+- **History**: every turn and its events are stored (`History`, `TurnEvents`); consecutive text pieces are joined into one entry. The UI loads it on demand, newest first, paging with `before`.
+- **Crashes**: a terminal program that crashes is restarted after the delays in `RestartPolicy` (default 1, 2, 5, 15, 30 seconds); a program that ran for `StableAfter` starts the count over. When the delays run out the session is given up on with a clear message, recorded in the audit log, and not restarted again. Quitting the program or Ctrl+C is not a crash.
+- **Daemon restart**: `Shutdown` stops everything and remembers which terminal sessions were running; turns in flight are recorded as `interrupted`. `Start` marks leftover turns interrupted and brings those terminal sessions back, resuming the provider session. A terminal stopped on purpose stays stopped.
+
 ## Concurrency model
 
 - One goroutine supervises each session; it owns the child process and its pipes.

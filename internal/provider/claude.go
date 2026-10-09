@@ -66,7 +66,7 @@ func (c Claude) Start(_ context.Context, req SessionRequest) (Session, error) {
 		if !proc.PTYSupported() {
 			return nil, fmt.Errorf("%w: the terminal mode is not available on this platform yet", ErrUnsupportedMode)
 		}
-		env := ProfileEnv(req.Profile, c.lookup())
+		env := MergeEnv(ProfileEnv(req.Profile, c.lookup()), req.ExtraEnv)
 		return newTerminalSession(req, claudeLauncher{}, req.Profile.Binary, env, true), nil
 	case ModeStructured:
 		if !slices.Contains(req.Profile.AcceptedNotices, NoticeClaudeHeadless) {
@@ -139,7 +139,7 @@ func (d claudeDialect) Turn(t TurnRequest) (Command, Parser, error) {
 	}
 	args = append(args, claudeFlags(t.Request)...)
 	return Command{
-		Spec: proc.Spec{Path: p.Binary, Args: args, Dir: t.Request.Dir, Env: ProfileEnv(p, d.lookup)},
+		Spec: proc.Spec{Path: p.Binary, Args: args, Dir: t.Request.Dir, Env: MergeEnv(ProfileEnv(p, d.lookup), t.Request.ExtraEnv)},
 		// The CLI reads the prompt from stdin; this also keeps it out of the
 		// process list.
 		Stdin: t.Prompt,

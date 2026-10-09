@@ -137,6 +137,42 @@ var migrations = []Migration{
 		);
 		`,
 	},
+	{
+		Version: 5,
+		Name:    "turns_and_sessions",
+		SQL: `
+		-- What the daemon needs to bring an employee's session back after a
+		-- restart: the provider's own session ID, and whether the employee had a
+		-- terminal session running.
+		ALTER TABLE employees ADD COLUMN provider_session_id TEXT NOT NULL DEFAULT '';
+		ALTER TABLE employees ADD COLUMN run_state TEXT NOT NULL DEFAULT 'stopped' CHECK (run_state IN ('stopped', 'running'));
+
+		-- One row per request to an employee (structured and API modes).
+		CREATE TABLE turns (
+			id             TEXT PRIMARY KEY,
+			employee_id    TEXT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+			prompt         TEXT NOT NULL,
+			state          TEXT NOT NULL CHECK (state IN ('queued', 'running', 'completed', 'canceled', 'failed', 'interrupted')),
+			error          TEXT NOT NULL DEFAULT '',
+			started_at     TEXT NOT NULL,
+			ended_at       TEXT NOT NULL DEFAULT '',
+			cost_usd       REAL NOT NULL DEFAULT 0,
+			input_tokens   INTEGER NOT NULL DEFAULT 0,
+			output_tokens  INTEGER NOT NULL DEFAULT 0
+		) STRICT;
+		CREATE INDEX turns_employee ON turns (employee_id, started_at);
+
+		-- The normalized events of a turn, in order. Consecutive text pieces are
+		-- stored as one event; payload is JSON.
+		CREATE TABLE turn_events (
+			seq      INTEGER PRIMARY KEY AUTOINCREMENT,
+			turn_id  TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+			kind     TEXT NOT NULL,
+			payload  TEXT NOT NULL
+		) STRICT;
+		CREATE INDEX turn_events_turn ON turn_events (turn_id, seq);
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,

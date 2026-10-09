@@ -55,7 +55,7 @@ func (c Codex) Start(_ context.Context, req SessionRequest) (Session, error) {
 		}
 		// Codex does not let us choose a session ID: it resumes the most recent
 		// session of the working folder, which is the employee's own.
-		return newTerminalSession(req, codexLauncher{}, req.Profile.Binary, ProfileEnv(req.Profile, c.lookup()), false), nil
+		return newTerminalSession(req, codexLauncher{}, req.Profile.Binary, MergeEnv(ProfileEnv(req.Profile, c.lookup()), req.ExtraEnv), false), nil
 	default:
 		return nil, fmt.Errorf("%w: Codex CLI supports %v, not %q", ErrUnsupportedMode, []Mode{ModeStructured, ModeTerminal}, mode)
 	}
@@ -145,7 +145,7 @@ func (d codexDialect) Turn(t TurnRequest) (Command, Parser, error) {
 		args = append(args, t.SessionID, "-")
 	}
 	return Command{
-		Spec:  proc.Spec{Path: p.Binary, Args: args, Dir: t.Request.Dir, Env: ProfileEnv(p, d.lookup)},
+		Spec:  proc.Spec{Path: p.Binary, Args: args, Dir: t.Request.Dir, Env: MergeEnv(ProfileEnv(p, d.lookup), t.Request.ExtraEnv)},
 		Stdin: t.Prompt,
 	}, &codexParser{requested: map[string]bool{}}, nil
 }
