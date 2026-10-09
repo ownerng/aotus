@@ -16,43 +16,73 @@ type fifoSem struct {
 
 func newFifoSem(n int) *fifoSem { return &fifoSem{free: n} }
 
-// Acquire takes a slot, waiting in line if none is free. It returns ctx.Err()
-// if ctx ends first, in which case no slot is held.
-func (s *fifoSem) Acquire(ctx context.Context) error {
+// ticket is a place in line. The order of tickets is the order in which
+// Enqueue was called, so a caller that enqueues synchronously fixes its turn
+// before doing anything else, whatever the scheduler does afterwards.
+type ticket struct {
+	s     *fifoSem
+	ready chan struct{}
+	elem  *list.Element // nil once the slot is granted
+	held  bool          // the slot was granted and not yet released
+}
+
+// Enqueue takes a place in line. If a slot is free and nobody is waiting, the
+// ticket is granted at once.
+func (s *fifoSem) Enqueue() *ticket {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	t := &ticket{s: s, ready: make(chan struct{})}
 	if s.free > 0 && s.waiters.Len() == 0 {
 		s.free--
-		s.mu.Unlock()
-		return nil
+		t.held = true
+		close(t.ready)
+		return t
 	}
-	ready := make(chan struct{})
-	elem := s.waiters.PushBack(ready)
-	s.mu.Unlock()
+	t.elem = s.waiters.PushBack(t)
+	return t
+}
 
+// Wait blocks until the ticket is granted a slot. It returns ctx.Err() if ctx
+// ends first, in which case the ticket holds nothing.
+func (t *ticket) Wait(ctx context.Context) error {
 	select {
-	case <-ready:
+	case <-t.ready:
 		return nil
 	case <-ctx.Done():
-		s.mu.Lock()
-		select {
-		case <-ready: // the slot was handed to us just as we gave up: pass it on
-			s.mu.Unlock()
-			s.Release()
-		default:
-			s.waiters.Remove(elem)
-			s.mu.Unlock()
+		t.s.mu.Lock()
+		if t.held { // granted just as we gave up: hand the slot on
+			t.held = false
+			t.s.mu.Unlock()
+			t.s.release()
+			return ctx.Err()
 		}
+		t.s.waiters.Remove(t.elem)
+		t.elem = nil
+		t.s.mu.Unlock()
 		return ctx.Err()
 	}
 }
 
-// Release returns a slot, handing it to the longest-waiting caller if any.
-func (s *fifoSem) Release() {
+// Release gives the slot back. Call it once, after Wait succeeded.
+func (t *ticket) Release() {
+	t.s.mu.Lock()
+	held := t.held
+	t.held = false
+	t.s.mu.Unlock()
+	if held {
+		t.s.release()
+	}
+}
+
+// release returns a slot, handing it to the longest-waiting ticket if any.
+func (s *fifoSem) release() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if front := s.waiters.Front(); front != nil {
-		s.waiters.Remove(front)
-		close(front.Value.(chan struct{}))
+		next := s.waiters.Remove(front).(*ticket)
+		next.elem = nil
+		next.held = true
+		close(next.ready)
 		return
 	}
 	s.free++

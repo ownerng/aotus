@@ -673,7 +673,7 @@
     "id": "P1-016",
     "phase": 1,
     "title": "Desktop stack spike: Wails version and frontend framework",
-    "status": "in_progress",
+    "status": "done",
     "depends_on": [
       "P1-015"
     ],
@@ -718,7 +718,8 @@
     "docs": [
       "docs/DECISIONS/0007-desktop-app-with-wails.md",
       "docs/API.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-017",

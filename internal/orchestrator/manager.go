@@ -249,9 +249,12 @@ func (m *Manager) Send(ctx context.Context, employeeID, prompt string) (string, 
 	rt.mu.Unlock()
 	m.hub.publish(Update{Kind: UpdateTurnQueued, EmployeeID: employeeID, TurnID: turn.ID})
 
+	// Take the place in line now, in the order the turns were sent: doing it in
+	// the goroutine would let the scheduler reorder them.
+	tk := m.sem.Enqueue()
 	m.wg.Add(1)
 	//nolint:gosec // a turn deliberately outlives the request that started it; CancelTurn and Shutdown end it
-	go rt.runTurn(turnCtx, cancel, sess, turn)
+	go rt.runTurn(turnCtx, cancel, tk, sess, turn)
 	return turn.ID, nil
 }
 
@@ -262,7 +265,7 @@ func (rt *runtime) release() {
 }
 
 // runTurn waits for a slot, runs the turn, and records everything.
-func (rt *runtime) runTurn(ctx context.Context, cancel context.CancelFunc, sess provider.Session, turn store.TurnRow) {
+func (rt *runtime) runTurn(ctx context.Context, cancel context.CancelFunc, tk *ticket, sess provider.Session, turn store.TurnRow) {
 	m := rt.m
 	defer m.wg.Done()
 	defer cancel()
@@ -281,11 +284,11 @@ func (rt *runtime) runTurn(ctx context.Context, cancel context.CancelFunc, sess 
 		m.hub.publish(Update{Kind: UpdateTurnEnded, EmployeeID: rt.id, TurnID: turn.ID, State: state, Detail: errText})
 	}
 
-	if err := m.sem.Acquire(ctx); err != nil { // canceled while waiting in line
+	if err := tk.Wait(ctx); err != nil { // canceled while waiting in line
 		end(rt.endState(store.TurnCanceled), "", nil)
 		return
 	}
-	defer m.sem.Release()
+	defer tk.Release()
 
 	_ = m.st.SetTurnState(context.Background(), turn.ID, store.TurnRunning)
 	m.hub.publish(Update{Kind: UpdateTurnStarted, EmployeeID: rt.id, TurnID: turn.ID})

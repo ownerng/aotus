@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -380,31 +381,44 @@ func TestConcurrencyLimitQueues(t *testing.T) {
 		turns = append(turns, id)
 	}
 	running, peak, ended := 0, 0, 0
-	startedOrder := []string{}
+	var order []string // "start <i>" and "end <i>", in the order they were published
+	index := map[string]int{}
+	for i, id := range turns {
+		index[id] = i
+	}
 	for ended < 4 {
 		u := waitUpdate(t, all, func(u Update) bool { return u.Kind == UpdateTurnStarted || u.Kind == UpdateTurnEnded })
 		switch u.Kind {
 		case UpdateTurnStarted:
 			running++
-			startedOrder = append(startedOrder, u.TurnID)
+			order = append(order, "start "+itoa(index[u.TurnID]))
 			peak = max(peak, running)
 		case UpdateTurnEnded:
 			running--
 			ended++
+			order = append(order, "end "+itoa(index[u.TurnID]))
 			if u.State != store.TurnCompleted {
 				t.Errorf("turn %s ended as %s: queued turns must wait, not fail", u.TurnID, u.State)
 			}
 		}
 	}
 	if peak != 2 {
-		t.Fatalf("at most 2 turns may run at once and the limit must be reached, peak was %d", peak)
+		t.Fatalf("at most 2 turns may run at once and the limit must be reached, peak was %d (%v)", peak, order)
 	}
-	for i, id := range turns {
-		if startedOrder[i] != id {
-			t.Fatalf("turns must start in the order they were sent: %v vs %v", startedOrder, turns)
-		}
+	// The first two to be sent are the first two to run; the other two wait
+	// until one of them has finished. (The order between the last two is not
+	// asserted: when both slots free up together, which "started" update is
+	// published first is a matter of microseconds. That they are served in
+	// arrival order is proved by TestFifoSemServesInArrivalOrder.)
+	if first := order[0] + "," + order[1]; first != "start 0,start 1" && first != "start 1,start 0" {
+		t.Fatalf("the first two turns sent must run first, got %v", order)
+	}
+	if order[2][:3] != "end" {
+		t.Fatalf("a queued turn started before a running one ended: %v", order)
 	}
 }
+
+func itoa(n int) string { return strconv.Itoa(n) }
 
 func TestQueuedTurnCanBeCanceledBeforeItStarts(t *testing.T) {
 	r := newRig(t, Options{MaxConcurrentTurns: 1})
