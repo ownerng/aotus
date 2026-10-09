@@ -22,7 +22,7 @@ Short rules so every contribution looks the same, whoever (or whatever) writes i
 - Tests are the acceptance criteria. A task lists the test names it requires; create exactly those names.
 - Table-driven tests with `t.Run` subtests. `t.Parallel()` where safe. `t.TempDir()` for files. No sleeping to wait for things: use channels, contexts and deterministic fakes.
 - Unit tests never use the network, the real home directory, the real clock or a real subscription. Use the fake provider (a small test program that emits scripted output) and fixtures in `testdata/`.
-- Adapters must pass the shared provider contract suite.
+- Adapters must pass the shared provider contract suite. Tests against the real installed CLIs live behind the build tag `realcli` (`make integration`); they use brand-new, logged-out profiles so they never touch the owner's login or quota.
 - Security properties get their own tests (for example, "foreign WebSocket origin is rejected", "employee cannot leave its folder").
 - Performance budgets are tests in `internal/bench`.
 - Run `go test -race ./...` before finishing anything concurrent (`crew verify --full` does it when a C compiler is available; CI always does).

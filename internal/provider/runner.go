@@ -38,8 +38,13 @@ type TurnRequest struct {
 // streaming, interrupting, cancelling, and closing every turn with exactly one
 // done event.
 type Dialect interface {
-	// Command builds the process to run for a turn.
-	Command(t TurnRequest) (Command, error)
+	// Turn builds the process to run for a turn and the parser for its output.
+	// The parser is used for this turn only, so it may keep state.
+	Turn(t TurnRequest) (Command, Parser, error)
+}
+
+// Parser turns the output of one turn into events.
+type Parser interface {
 	// Parse turns one line of output into zero or more events. It must
 	// tolerate lines and fields it does not know.
 	Parse(l proc.Line) []Event
@@ -105,7 +110,7 @@ func (s *processSession) Send(ctx context.Context, prompt string) error {
 	if s.turn != nil {
 		return ErrTurnActive
 	}
-	cmd, err := s.d.Command(TurnRequest{Prompt: prompt, SessionID: s.sessionID, Request: s.req})
+	cmd, parser, err := s.d.Turn(TurnRequest{Prompt: prompt, SessionID: s.sessionID, Request: s.req})
 	if err != nil {
 		return err
 	}
@@ -125,18 +130,18 @@ func (s *processSession) Send(ctx context.Context, prompt string) error {
 	t := &activeTurn{p: p}
 	s.turn = t
 	s.wg.Add(1)
-	go s.pump(t, filepath.Base(cmd.Spec.Path))
+	go s.pump(t, parser, filepath.Base(cmd.Spec.Path))
 	return nil
 }
 
 // pump reads a turn's output, normalizes it and makes sure the turn ends with
 // exactly one done event.
-func (s *processSession) pump(t *activeTurn, name string) {
+func (s *processSession) pump(t *activeTurn, parser Parser, name string) {
 	defer s.wg.Done()
 	var st turnState
 
 	for l := range t.p.Lines() {
-		for _, ev := range s.d.Parse(l) {
+		for _, ev := range parser.Parse(l) {
 			s.handle(t, &st, ev)
 		}
 	}
@@ -144,7 +149,7 @@ func (s *processSession) pump(t *activeTurn, name string) {
 	if exit.Canceled {
 		t.stop.Store(true)
 	}
-	for _, ev := range s.d.OnExit(exit, t.p.Recent()) {
+	for _, ev := range parser.OnExit(exit, t.p.Recent()) {
 		s.handle(t, &st, ev)
 	}
 	if !st.done {

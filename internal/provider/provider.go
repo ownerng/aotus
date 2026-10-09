@@ -65,6 +65,10 @@ type SessionRequest struct {
 	SystemPrompt string
 	ResumeID     string // provider session to continue, if any
 	Model        string // overrides Profile.Model
+	// PermissionMode and AllowedTools are passed to CLIs that support them;
+	// they come from the employee's permissions.
+	PermissionMode string
+	AllowedTools   []string
 }
 
 // Provider adapts one family of CLIs (or an API) to Aotus.

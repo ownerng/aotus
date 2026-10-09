@@ -46,7 +46,7 @@ func (f Fake) Start(_ context.Context, req provider.SessionRequest) (provider.Se
 
 type fakeDialect struct{ f Fake }
 
-func (d fakeDialect) Command(t provider.TurnRequest) (provider.Command, error) {
+func (d fakeDialect) Turn(t provider.TurnRequest) (provider.Command, provider.Parser, error) {
 	// Use the real environment builder, so the contract tests exercise the
 	// allow-list and not a hand-written copy of it.
 	prof := t.Request.Profile
@@ -63,10 +63,12 @@ func (d fakeDialect) Command(t provider.TurnRequest) (provider.Command, error) {
 		Dir:   t.Request.Dir,
 		Env:   env,
 		Grace: 300 * time.Millisecond,
-	}}, nil
+	}}, fakeParser{}, nil
 }
 
-func (fakeDialect) Parse(l proc.Line) []provider.Event {
+type fakeParser struct{}
+
+func (fakeParser) Parse(l proc.Line) []provider.Event {
 	if l.Stream != proc.Stdout {
 		return nil
 	}
@@ -100,4 +102,4 @@ func (fakeDialect) Parse(l proc.Line) []provider.Event {
 	return nil
 }
 
-func (fakeDialect) OnExit(proc.Exit, []proc.Line) []provider.Event { return nil }
+func (fakeParser) OnExit(proc.Exit, []proc.Line) []provider.Event { return nil }

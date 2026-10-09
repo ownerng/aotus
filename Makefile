@@ -3,7 +3,7 @@
 GO ?= go
 CREW := $(GO) run ./cmd/crew
 
-.PHONY: crew status next verify verify-full test lint fmt build report
+.PHONY: crew status next verify verify-full test integration lint fmt build report
 
 crew: ## build the harness CLI into bin/crew
 	$(GO) build -o bin/crew ./cmd/crew
@@ -22,6 +22,9 @@ verify-full: ## race detector, cross-compilation, govulncheck (CI uses --strict)
 
 test:
 	$(GO) test ./...
+
+integration: ## tests against the real installed CLIs (logged-out profiles, no quota used)
+	$(GO) test -tags realcli -run TestReal -v ./internal/provider
 
 lint:
 	golangci-lint run

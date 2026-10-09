@@ -40,6 +40,10 @@ type Profile struct {
 	// APIKeyRef names the entry in the operating system credential store that
 	// holds the API key (api mode). It is never the key itself.
 	APIKeyRef string
+	// AcceptedNotices lists the notices the user accepted for this profile (for
+	// example NoticeClaudeHeadless). A mode guarded by a notice refuses to
+	// start without it.
+	AcceptedNotices []string
 	// TermsCheckedAt is the date (YYYY-MM-DD) the provider's terms were last
 	// reviewed for this integration mode (docs/research/provider-terms.md).
 	TermsCheckedAt string
