@@ -847,7 +847,7 @@
     "id": "P1-019",
     "phase": 1,
     "title": "Performance budgets as tests",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-010",
       "P1-014"
@@ -895,7 +895,8 @@
     ],
     "docs": [
       "docs/PRD.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-020",

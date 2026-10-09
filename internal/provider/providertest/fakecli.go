@@ -58,6 +58,10 @@ const (
 	Replay Scenario = "replay"
 	// Chatty sends 1500 text events, one character each, and completes.
 	Chatty Scenario = "chatty"
+	// Stamped sends 100 text events 10 ms apart; each one carries the time it
+	// was written (Unix nanoseconds), so a test can measure how long it took to
+	// arrive.
+	Stamped Scenario = "stamped"
 	// Slow works for 300 ms and then completes.
 	Slow Scenario = "slow"
 	// Crash records that it was launched (a line appended to the file named by
@@ -239,6 +243,13 @@ func runFakeCLI(args []string) {
 		out.session(session)
 		for i := 0; i < 1500; i++ {
 			out.text("x")
+		}
+		out.done()
+	case Stamped:
+		out.session(session)
+		for i := 0; i < 100; i++ {
+			out.text(strconv.FormatInt(time.Now().UnixNano(), 10) + ";")
+			time.Sleep(10 * time.Millisecond)
 		}
 		out.done()
 	case Slow:
