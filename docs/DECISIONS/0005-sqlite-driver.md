@@ -18,4 +18,4 @@ Pragmas are set in the DSN so every pooled connection gets them: `journal_mode(W
 - The daemon binary grows (the SQLite engine is inside it); the size budget N6 (under 50 MB) is checked by the budget tests in P1-019. If it is exceeded, revisit.
 - It is slower than the C library in some workloads; our workload is small and local, and N1 to N7 are measured.
 - Alternatives considered: `github.com/ncruces/go-sqlite3` (SQLite compiled to WebAssembly and run with wazero; also pure Go, a heavier runtime and a smaller user base) and `mattn/go-sqlite3` (cgo, rejected by ADR 0001).
-- Full-text search for memory (F5) uses SQLite FTS5; P1-012 verifies that this build includes it.
+- Full-text search for memory (F5) uses SQLite FTS5. Verified in P1-012 (2026-10-09): this driver build includes FTS5 and the `unicode61` tokenizer with accent removal.

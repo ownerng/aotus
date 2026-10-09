@@ -485,7 +485,7 @@
     "id": "P1-012",
     "phase": 1,
     "title": "Employee memory: SQLite plus Markdown notes",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-003",
       "P1-009"
@@ -518,7 +518,8 @@
     ],
     "docs": [
       "docs/ARCHITECTURE.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-013",

@@ -100,6 +100,43 @@ var migrations = []Migration{
 		) STRICT;
 		`,
 	},
+	{
+		Version: 4,
+		Name:    "memory",
+		SQL: `
+		-- Facts an employee learned, one row each.
+		CREATE TABLE memory_facts (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			employee_id  TEXT NOT NULL,
+			key          TEXT NOT NULL DEFAULT '',
+			body         TEXT NOT NULL,
+			created_at   TEXT NOT NULL,
+			updated_at   TEXT NOT NULL
+		) STRICT;
+		CREATE INDEX memory_facts_employee ON memory_facts (employee_id, id);
+
+		-- Markdown notes found in the employee's memory folder. The files are the
+		-- source of truth (the user may edit them by hand); this table only
+		-- remembers what was indexed, to notice changes.
+		CREATE TABLE memory_notes (
+			employee_id  TEXT NOT NULL,
+			path         TEXT NOT NULL,
+			mtime_ns     INTEGER NOT NULL,
+			size         INTEGER NOT NULL,
+			PRIMARY KEY (employee_id, path)
+		) STRICT;
+
+		-- Full-text index over facts and notes. kind is 'fact' or 'note'; ref is
+		-- the fact ID or the note path.
+		CREATE VIRTUAL TABLE memory_fts USING fts5(
+			body,
+			employee_id UNINDEXED,
+			kind UNINDEXED,
+			ref UNINDEXED,
+			tokenize = 'unicode61 remove_diacritics 2'
+		);
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,
