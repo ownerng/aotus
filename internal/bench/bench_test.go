@@ -92,7 +92,7 @@ func daemonBinary(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", out, "./cmd/aotusd")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-trimpath", "-ldflags", "-s -w", "-o", out, "./cmd/aotusd")
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if b, err := cmd.CombinedOutput(); err != nil {
@@ -124,7 +124,7 @@ type runningDaemon struct {
 func startBinary(t *testing.T) *runningDaemon {
 	t.Helper()
 	l := datadir.Layout{Root: filepath.Join(t.TempDir(), "aotus")}
-	cmd := exec.Command(daemonBinary(t), "--data-dir", l.Root)
+	cmd := exec.CommandContext(context.Background(), daemonBinary(t), "--data-dir", l.Root)
 	start := time.Now()
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -192,13 +192,13 @@ func rssKB(pid int) (int, error) {
 		}
 		return 0, fmt.Errorf("no VmRSS in /proc/%d/status", pid)
 	case "darwin":
-		out, err := exec.Command("ps", "-o", "rss=", "-p", strconv.Itoa(pid)).Output()
+		out, err := exec.CommandContext(context.Background(), "ps", "-o", "rss=", "-p", strconv.Itoa(pid)).Output()
 		if err != nil {
 			return 0, err
 		}
 		return strconv.Atoi(strings.TrimSpace(string(out)))
 	case "windows":
-		out, err := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH").Output()
+		out, err := exec.CommandContext(context.Background(), "tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/FO", "CSV", "/NH").Output()
 		if err != nil {
 			return 0, err
 		}
@@ -316,7 +316,7 @@ func TestTurnOverheadBudget(t *testing.T) {
 	// The same work done by the CLI alone, without the daemon: start the fake
 	// CLI, let it print its answer, wait for it to end.
 	direct := func() time.Duration {
-		cmd := exec.Command(os.Args[0], "-p", "--output-format", "stream-json")
+		cmd := exec.CommandContext(context.Background(), os.Args[0], "-p", "--output-format", "stream-json")
 		cmd.Env = []string{providertest.EnvFakeCLI + "=1", providertest.EnvFakeScenario + "=" + string(providertest.Hello)}
 		if runtime.GOOS == "windows" {
 			cmd.Env = append(cmd.Env, "SYSTEMROOT="+os.Getenv("SYSTEMROOT"))

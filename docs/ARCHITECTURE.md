@@ -91,6 +91,17 @@ Restricted imports: `os/exec` only in `proc`, `harness`, `bench`. `import "C"` n
 - **Crashes**: a terminal program that crashes is restarted after the delays in `RestartPolicy` (default 1, 2, 5, 15, 30 seconds); a program that ran for `StableAfter` starts the count over. When the delays run out the session is given up on with a clear message, recorded in the audit log, and not restarted again. Quitting the program or Ctrl+C is not a crash.
 - **Daemon restart**: `Shutdown` stops everything and remembers which terminal sessions were running; turns in flight are recorded as `interrupted`. `Start` marks leftover turns interrupted and brings those terminal sessions back, resuming the provider session. A terminal stopped on purpose stays stopped.
 
+## The desktop app (`cmd/aotus-desktop`, build tag `desktop`)
+
+A Wails v3 window with a Svelte 5 + TypeScript frontend (ADR 0010). It is a client of the daemon and nothing more.
+
+- **`Backend`** (`backend.go`, `api.go`) holds the `internal/client` connection and the token. Its exported methods are the only thing the JavaScript can call (Wails generates the TypeScript bindings); the token and the daemon's address never reach the WebView. It has no GUI types, so it is tested without a window.
+- **Finding the daemon.** `Connect` uses the discovery file; if no daemon answers it starts `aotusd` (next to the app, else in the PATH) with `proc.StartDetached`, so the daemon is in its own session and survives the window, and waits until it is ready. If the connection drops, it reconnects, and starts the daemon again if it died.
+- **Events.** One stream of the daemon's events is forwarded to the window as Wails events: `update`, `approval`, `daemon`, `resync` (the stream fell behind). Terminal output travels as `terminal` events with base64 chunks under a key (`employee:<id>` or `login:<profile>`); input and resize are calls.
+- **Closing the window quits the app** (only the daemon stays) unless the setting "keep in the tray" is on (`desktop.json` in the user config directory; the tray exists only while it is on). `shutdown` detaches terminals and stops the streams; it never stops the daemon.
+- **Memory.** Only the selected employee's conversation is in memory, loaded in pages of 20 turns with answers of old turns on demand, and the list is virtualized (`VirtualList.svelte`). Numbers: `docs/BENCHMARKS.md`.
+- **Build.** `make desktop` generates the bindings, builds the frontend into `frontend/dist` (embedded) and builds the Go app with `-tags desktop,gtk3` on Linux (`desktop` elsewhere). `frontend/bindings` and `frontend/dist` are generated and not committed.
+
 ## Concurrency model
 
 - One goroutine supervises each session; it owns the child process and its pipes.

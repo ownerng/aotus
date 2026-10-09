@@ -3,6 +3,7 @@ package proc
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -291,5 +292,21 @@ func waitDead(t *testing.T, pids ...int) {
 			t.Fatalf("processes still running after the tree was killed: %v", running)
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func TestStartDetachedStartsAndReleases(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The test binary asked for -test.list exits right away; what matters is
+	// that it starts and that we get a PID without holding on to the child.
+	pid, err := StartDetached(exe, "-test.list", "NoSuchTest")
+	if err != nil || pid <= 0 {
+		t.Fatalf("StartDetached = %d, %v", pid, err)
+	}
+	if _, err := StartDetached("/definitely/not/a/binary"); err == nil {
+		t.Fatal("a missing binary must fail")
 	}
 }

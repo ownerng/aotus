@@ -24,4 +24,17 @@ macOS and Windows rows are added when the benchmarks run on those systems in CI.
 
 ## Desktop window memory
 
-Not measured yet: recorded when the desktop app (P1-017) exists.
+Measured on 2026-10-09 on Fedora 44 (KDE Plasma, Wayland), WebKitGTK 2.54.1, the real app (`go build -tags desktop,gtk3`) opened on an employee with a history of 500 turns (1000 messages: prompts and answers), memory as PSS from `/proc/<pid>/smaps_rollup` for the app and the processes it started (the window's web process and network process). The daemon is not included.
+
+| State | App | Web process | Network process | Total PSS |
+| --- | --- | --- | --- | --- |
+| Opened on the 500-turn employee (latest 20 turns loaded, 8 answers) | 90 MB | 133 MB | 26 MB | **249 MB** |
+| Worst case: all 1000 messages loaded into the list | 94 MB | 151 MB | 26 MB | **272 MB** |
+| Empty template window (spike, `docs/research/desktop-spike.md`) | | | | 246 to 262 MB |
+| For comparison: the daemon `aotusd` with that history | | | | 14 to 19 MB |
+
+What this says:
+
+- The window costs what a WebView costs, about 250 MB, however small the page. The conversation adds little: loading all 1000 messages added about 23 MB because the list only builds the rows near the viewport (`VirtualList.svelte`) and history is loaded in pages of 20 turns, answers of old turns on demand.
+- This is why closing the window quits the app (ADR 0010): the employees run in the 15 MB daemon, so the 250 MB is paid only while a window is open. Keeping the app in the tray is an opt-in setting.
+- Only Linux was measured. macOS and Windows rows come from CI machines or the owner's machines when P1-018 and P1-021 run there.

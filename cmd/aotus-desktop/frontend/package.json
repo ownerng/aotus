@@ -1,0 +1,25 @@
+{
+  "name": "aotus-desktop-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --mode production",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@wailsio/runtime": "3.0.0-beta.28",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@tsconfig/svelte": "^5.0.8",
+    "svelte": "^5.46.4",
+    "svelte-check": "^4.4.8",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "vite": "^8.0.5"
+  }
+}

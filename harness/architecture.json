@@ -134,11 +134,12 @@
     },
     {
       "package": "cmd/aotus-desktop",
-      "why": "Wails desktop app (build tag desktop): a client, talks to the daemon only through internal/client",
+      "why": "Wails desktop app (build tag desktop): a client, talks to the daemon only through internal/client; it starts the daemon detached through proc.StartDetached (the only process spawning, kept in proc)",
       "may_import": [
         "internal/client",
         "internal/version",
-        "internal/datadir"
+        "internal/datadir",
+        "internal/proc"
       ]
     },
     {
