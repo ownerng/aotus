@@ -1,0 +1,877 @@
+[
+  {
+    "id": "P1-001",
+    "phase": 1,
+    "title": "CLI contracts: observe the real CLIs",
+    "status": "in_progress",
+    "requirements": [
+      "F1",
+      "S2"
+    ],
+    "description": "Observe the official CLIs installed on the owner's machine (claude and codex are installed). --help and --version are free to use. Running real prompts consumes the owner's subscription quota: ask the owner first and keep prompts tiny. Never open credential or session files of any CLI. Document per CLI: how to detect it and its version, how to check login status without reading credentials, the headless/structured mode and its flags, the output stream format (save real samples as fixtures), how to resume a session, how to cancel, exit codes, how to isolate its configuration so several profiles coexist (environment variable or flag), and whether its interactive UI can be hosted in a pseudo-terminal. Record the minimum tested versions.",
+    "acceptance": [
+      "docs/research/cli-contracts.md documents all of the above for Claude Code and Codex CLI",
+      "Real output samples are saved under internal/provider/testdata/ with no secrets or tokens",
+      "The document states which integration modes (structured, terminal) each CLI really supports and the minimum tested versions",
+      "The configuration isolation mechanism of each CLI is verified, not assumed"
+    ],
+    "checks": [
+      {
+        "name": "cli contracts research",
+        "file": "docs/research/cli-contracts.md",
+        "contains": [
+          "Claude Code",
+          "Codex CLI",
+          "headless",
+          "stream",
+          "resume",
+          "cancel",
+          "minimum version",
+          "config directory",
+          "login status",
+          "pseudo-terminal"
+        ]
+      },
+      {
+        "name": "fixtures readme",
+        "file": "internal/provider/testdata/README.md"
+      }
+    ],
+    "paths": [
+      "docs/research/cli-contracts.md",
+      "internal/provider/testdata/"
+    ],
+    "docs": [
+      "docs/research/provider-terms.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
+    ]
+  },
+  {
+    "id": "P1-002",
+    "phase": 1,
+    "title": "proc: supervised child processes",
+    "status": "done",
+    "requirements": [
+      "F6",
+      "S3"
+    ],
+    "description": "Implement internal/proc: start a child process from an explicit binary, arguments, working directory and exact environment; stream stdout and stderr line by line; keep a bounded ring buffer of recent output; report the exit code; and kill the whole process tree on cancel on every operating system (new process group on Unix, Job Object on Windows). Use only the standard library plus syscall; any new dependency needs an ADR.",
+    "acceptance": [
+      "A process started with a context is killed with all its children when the context is cancelled, on Linux, macOS and Windows (CI)",
+      "The child receives exactly the environment it was given, nothing inherited",
+      "Output is delivered in order, line by line, without unbounded memory growth",
+      "A missing or non-executable binary produces a clear error that names the path",
+      "No goroutine or handle leaks after the process exits"
+    ],
+    "checks": [
+      {
+        "name": "proc tests",
+        "pkg": "./internal/proc",
+        "tests": [
+          "TestStartStreamsStdoutLines",
+          "TestStderrIsCapturedSeparately",
+          "TestExitCodeIsReported",
+          "TestCancelKillsWholeProcessTree",
+          "TestEnvironmentIsExactlyWhatWasPassed",
+          "TestRingBufferKeepsLastLines",
+          "TestMissingBinaryReturnsClearError",
+          "TestNoGoroutineLeakAfterExit"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/proc/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/CONVENTIONS.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
+    ],
+    "completed_at": "2026-10-09"
+  },
+  {
+    "id": "P1-003",
+    "phase": 1,
+    "title": "Store: SQLite in WAL mode with migrations",
+    "status": "todo",
+    "requirements": [
+      "F5"
+    ],
+    "description": "Implement internal/store: create the data directory with owner-only permissions, open SQLite in WAL mode with foreign keys on using a pure-Go driver (no cgo), and apply ordered, idempotent migrations in transactions. Record the driver choice as an ADR (0005).",
+    "acceptance": [
+      "The data directory layout in docs/ARCHITECTURE.md is created on first open with owner-only permissions",
+      "Migrations apply in order, exactly once, and a failed migration leaves the database unchanged",
+      "The database opens in WAL mode with foreign keys enforced",
+      "go build with CGO_ENABLED=0 succeeds on every target"
+    ],
+    "checks": [
+      {
+        "name": "store tests",
+        "pkg": "./internal/store",
+        "tests": [
+          "TestOpenCreatesDataDir",
+          "TestDataDirIsOwnerOnly",
+          "TestMigrationsApplyInOrderOnce",
+          "TestFailedMigrationRollsBack",
+          "TestOpenUsesWAL"
+        ]
+      },
+      {
+        "name": "driver ADR",
+        "file": "docs/DECISIONS/0005-sqlite-driver.md",
+        "contains": [
+          "Status: accepted"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/store/",
+      "docs/DECISIONS/0005-sqlite-driver.md",
+      "go.mod"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/CONVENTIONS.md"
+    ]
+  },
+  {
+    "id": "P1-004",
+    "phase": 1,
+    "title": "Provider interface, normalized events and contract suite",
+    "status": "todo",
+    "depends_on": [
+      "P1-002"
+    ],
+    "requirements": [
+      "F1"
+    ],
+    "description": "Define the Provider interface in internal/provider: detect the CLI (installed, version, supported modes, login status), start a session through internal/proc, stream normalized events (text delta, tool request, tool result, error, done), send input, cancel, close. Add a fake provider (a small test program that emits scripted output) and a reusable contract test suite that every adapter must pass. Finalize the interface section of docs/ARCHITECTURE.md.",
+    "acceptance": [
+      "The interface and event types are documented in docs/ARCHITECTURE.md",
+      "A contract test suite runs against the fake provider and is reusable by adapters",
+      "Cancelling a session terminates the child process and its children",
+      "Events never include credentials or environment variables"
+    ],
+    "checks": [
+      {
+        "name": "provider tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestContractWithFakeProvider",
+          "TestEventsAreNormalized",
+          "TestCancelStopsProcessTree",
+          "TestEventsNeverLeakEnvironment"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/research/cli-contracts.md"
+    ]
+  },
+  {
+    "id": "P1-005",
+    "phase": 1,
+    "title": "Profiles: several subscriptions, isolated",
+    "status": "todo",
+    "depends_on": [
+      "P1-001",
+      "P1-004"
+    ],
+    "requirements": [
+      "F1",
+      "S2"
+    ],
+    "description": "Implement profiles in internal/provider: provider kind, CLI binary path, an isolated configuration directory under the data directory (using the CLI's own mechanism verified in P1-001), integration mode, terms flags and terms_checked_at. Detect login status through the CLI's own commands, never by opening credential files. A child process receives only an explicit allow-list of environment variables. There is no automatic switching or pooling of profiles: the API must not offer it.",
+    "acceptance": [
+      "Two profiles of the same provider do not share any state or configuration directory",
+      "A profile stores no secrets; API keys, if any, are referenced from the operating system credential store",
+      "Login status is detected without reading credential or session files (tested with a canary file)",
+      "The environment passed to the CLI is exactly an allow-list",
+      "No function switches an employee's profile based on rate limits or errors"
+    ],
+    "checks": [
+      {
+        "name": "profile tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestProfileUsesIsolatedConfigDir",
+          "TestTwoProfilesOfSameProviderDoNotShareState",
+          "TestLoginStatusDetectedWithoutReadingCredentialFiles",
+          "TestChildEnvironmentIsAllowListed",
+          "TestProfileHoldsNoSecrets",
+          "TestNoAutomaticProfileRotation"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/"
+    ],
+    "docs": [
+      "docs/research/cli-contracts.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P1-006",
+    "phase": 1,
+    "title": "Claude Code adapter",
+    "status": "todo",
+    "depends_on": [
+      "P1-001",
+      "P1-004",
+      "P1-005"
+    ],
+    "requirements": [
+      "F1",
+      "S2"
+    ],
+    "description": "Implement the Claude Code adapter in the modes enabled by the terms decision in docs/research/provider-terms.md. It launches the unmodified official binary, never alters headers or the user agent, never opens its credential files, and reports a missing, logged-out or too-old CLI with distinct, actionable errors. Use the recorded fixtures for tests.",
+    "acceptance": [
+      "The adapter passes the provider contract suite in each enabled mode",
+      "Fixture-based tests parse real recorded output",
+      "A missing CLI, a logged-out CLI and an unsupported version produce three distinct errors",
+      "The adapter launches the binary exactly as installed and never opens credential files",
+      "Each mode is behind a capability flag with a terms_checked_at date"
+    ],
+    "checks": [
+      {
+        "name": "claude adapter tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestClaudePassesContract",
+          "TestClaudeParsesRecordedStream",
+          "TestClaudeReportsMissingLoggedOutAndOldCLI",
+          "TestClaudeNeverReadsCredentialFiles",
+          "TestClaudeLaunchesUnmodifiedBinary"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/claude*.go",
+      "internal/provider/testdata/"
+    ],
+    "docs": [
+      "docs/research/cli-contracts.md",
+      "docs/research/provider-terms.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
+    ]
+  },
+  {
+    "id": "P1-007",
+    "phase": 1,
+    "title": "Codex CLI adapter and OpenAI-compatible API adapter",
+    "status": "todo",
+    "depends_on": [
+      "P1-001",
+      "P1-004",
+      "P1-005"
+    ],
+    "requirements": [
+      "F1",
+      "S2"
+    ],
+    "description": "Implement the Codex CLI adapter (exec --json or app-server, as verified in P1-001) and a generic adapter for any OpenAI-compatible endpoint configured with the user's own API key, the fallback when a CLI is not allowed. API keys live in the operating system credential store, never in the database or logs.",
+    "acceptance": [
+      "Both adapters pass the provider contract suite",
+      "The API adapter streams over HTTP and supports cancellation through the request context",
+      "API keys are read from and written to the operating system credential store only",
+      "Neither adapter opens credential or session files of any CLI"
+    ],
+    "checks": [
+      {
+        "name": "codex and api adapter tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestCodexPassesContract",
+          "TestCodexParsesRecordedStream",
+          "TestCodexNeverReadsCredentialFiles",
+          "TestOpenAICompatPassesContract",
+          "TestOpenAICompatCancelsRequest",
+          "TestAPIKeyNeverWrittenToDatabase"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/codex*.go",
+      "internal/provider/openai*.go"
+    ],
+    "docs": [
+      "docs/research/cli-contracts.md",
+      "docs/research/provider-terms.md"
+    ]
+  },
+  {
+    "id": "P1-008",
+    "phase": 1,
+    "title": "Workspace: per-employee folder and scrubbed environment",
+    "status": "todo",
+    "requirements": [
+      "S3"
+    ],
+    "description": "Implement internal/workspace: create each employee's working folder inside the data directory, reject any path that escapes it (including through symlinks and .. segments), build the allow-listed environment for a child process, and move deleted folders to the trash.",
+    "acceptance": [
+      "An employee folder is created inside the data directory with owner-only permissions",
+      "Paths with .. or symlinks that escape the folder are rejected",
+      "The environment contains only allow-listed variables",
+      "Deleting an employee moves its folder to the trash, never removes it"
+    ],
+    "checks": [
+      {
+        "name": "workspace tests",
+        "pkg": "./internal/workspace",
+        "tests": [
+          "TestEmployeeFolderCreatedInsideDataDir",
+          "TestPathEscapeIsRejected",
+          "TestSymlinkEscapeIsRejected",
+          "TestEnvironmentIsScrubbed",
+          "TestRemovingEmployeeMovesFolderToTrash"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/workspace/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P1-009",
+    "phase": 1,
+    "title": "Employees: model, storage and lifecycle",
+    "status": "todo",
+    "depends_on": [
+      "P1-003",
+      "P1-005",
+      "P1-008"
+    ],
+    "requirements": [
+      "F2"
+    ],
+    "description": "Define the employee (name, role, system prompt, profile, workspace folder, permissions), persist it, and implement create, list, update, pause, resume and delete in the orchestrator. Each employee is bound to exactly one profile. Deleting an employee keeps its audit log.",
+    "acceptance": [
+      "Names are unique and validated",
+      "An employee is bound to exactly one existing profile",
+      "Pause and resume survive a daemon restart",
+      "Delete moves the folder to the trash and keeps the audit log"
+    ],
+    "checks": [
+      {
+        "name": "employee tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestCreateEmployeeValidatesName",
+          "TestEmployeeBoundToOneProfile",
+          "TestPauseAndResumeSurviveRestart",
+          "TestDeleteKeepsAuditLog",
+          "TestWorkingFolderStaysInsideDataDir"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/orchestrator/",
+      "internal/store/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md"
+    ]
+  },
+  {
+    "id": "P1-010",
+    "phase": 1,
+    "title": "Sessions and turns: background CLI processes",
+    "status": "todo",
+    "depends_on": [
+      "P1-002",
+      "P1-004",
+      "P1-009"
+    ],
+    "requirements": [
+      "F3",
+      "F6"
+    ],
+    "description": "Keep one supervised session per active employee alive in the background, independent of any client. Run turns, fan normalized events out to subscribers, persist the history, cancel immediately, and run many employees in parallel without one blocking another. Apply a restart policy with back-off for crashed sessions and resume sessions after a daemon restart through the CLI's own resume feature where it exists.",
+    "acceptance": [
+      "A session keeps running when every subscriber disconnects",
+      "Events arrive in order and are persisted to history",
+      "Cancel stops the turn and the process tree promptly and records the cancellation",
+      "A slow or stuck subscriber does not block other employees or the producer",
+      "A configurable concurrency limit queues extra turns instead of failing",
+      "A crashing CLI is restarted with back-off and gives up with a clear error",
+      "After a daemon restart, sessions are resumed or marked as needing resume"
+    ],
+    "checks": [
+      {
+        "name": "session tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestSessionKeepsRunningWhenSubscribersLeave",
+          "TestTurnStreamsEventsInOrder",
+          "TestTurnPersistsHistory",
+          "TestCancelIsImmediate",
+          "TestSlowSubscriberDoesNotBlock",
+          "TestParallelEmployeesDoNotBlockEachOther",
+          "TestConcurrencyLimitQueues",
+          "TestRestartPolicyBacksOff",
+          "TestSessionResumesAfterDaemonRestart"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/orchestrator/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/CONVENTIONS.md"
+    ]
+  },
+  {
+    "id": "P1-011",
+    "phase": 1,
+    "title": "Permissions, approvals and audit log",
+    "status": "todo",
+    "depends_on": [
+      "P1-003"
+    ],
+    "requirements": [
+      "F4"
+    ],
+    "description": "Classify actions (run command, write outside the folder, network access, read outside the folder), ask the user for approval through the API, remember decisions per employee, and write an append-only audit log.",
+    "acceptance": [
+      "Sensitive actions are denied by default until approved",
+      "A remembered decision applies only to the employee and action it was given for",
+      "The audit log is append-only: the code exposes no update or delete of audit rows",
+      "An approval request that times out is a denial"
+    ],
+    "checks": [
+      {
+        "name": "permission tests",
+        "pkg": "./internal/permissions",
+        "tests": [
+          "TestSensitiveActionsDeniedByDefault",
+          "TestRememberedDecisionIsScopedToEmployeeAndAction",
+          "TestAuditLogHasNoUpdateOrDelete",
+          "TestApprovalTimeoutDenies"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/permissions/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P1-012",
+    "phase": 1,
+    "title": "Employee memory: SQLite plus Markdown notes",
+    "status": "todo",
+    "depends_on": [
+      "P1-003",
+      "P1-009"
+    ],
+    "requirements": [
+      "F5"
+    ],
+    "description": "Give every employee persistent memory: structured facts in SQLite and free notes as Markdown files in its folder, with full-text search across both. One employee can never read another's memory.",
+    "acceptance": [
+      "Notes are plain Markdown files the user can edit by hand, and edits are picked up",
+      "Search finds facts and notes using SQLite full-text search",
+      "Memory is isolated per employee, enforced by tests",
+      "Memory survives a profile or provider change"
+    ],
+    "checks": [
+      {
+        "name": "memory tests",
+        "pkg": "./internal/store",
+        "tests": [
+          "TestMemorySearchFindsFactsAndNotes",
+          "TestMemoryIsolatedPerEmployee",
+          "TestHandEditedNotesAreIndexed",
+          "TestMemorySurvivesProfileChange"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/store/",
+      "internal/orchestrator/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md"
+    ]
+  },
+  {
+    "id": "P1-013",
+    "phase": 1,
+    "title": "Daemon lifecycle and local network access",
+    "status": "todo",
+    "requirements": [
+      "F17",
+      "S1"
+    ],
+    "description": "Make the daemon behave as a background program on a personal PC. internal/lifecycle: single-instance lock (a stale lock is reclaimed), a discovery file with address, pid and start time (owner-only), and autostart at login on Windows, macOS and Linux. internal/netaccess: listen on loopback only, generate a local token with owner-only permissions, refuse any non-loopback bind. Graceful shutdown stops all sessions.",
+    "acceptance": [
+      "A second daemon instance exits with a clear message pointing to the running one",
+      "A stale lock left by a crashed daemon is reclaimed",
+      "The discovery file and the token are owner-only",
+      "Binding to a non-loopback address is refused",
+      "Autostart can be enabled and disabled on each operating system"
+    ],
+    "checks": [
+      {
+        "name": "lifecycle tests",
+        "pkg": "./internal/lifecycle",
+        "tests": [
+          "TestSecondInstanceIsRejected",
+          "TestStaleLockIsReclaimed",
+          "TestDiscoveryFileIsOwnerOnly",
+          "TestAutostartEntryRoundTrip"
+        ]
+      },
+      {
+        "name": "netaccess tests",
+        "pkg": "./internal/netaccess",
+        "tests": [
+          "TestDefaultsToLoopback",
+          "TestRefusesNonLoopbackBind",
+          "TestLocalTokenFilePermissions",
+          "TestTokenRegeneratedWhenMissing"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/lifecycle/",
+      "internal/netaccess/",
+      "cmd/aotusd/"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P1-014",
+    "phase": 1,
+    "title": "API: HTTP and WebSocket with authentication",
+    "status": "todo",
+    "depends_on": [
+      "P1-010",
+      "P1-011",
+      "P1-013"
+    ],
+    "requirements": [
+      "F3",
+      "S1"
+    ],
+    "description": "Expose profiles, employees, sessions, turns, approvals and memory over HTTP and WebSocket on loopback. Every request needs the local token, WebSocket origins are validated, CORS is closed. Document the API in docs/API.md; it is the only contract with clients.",
+    "acceptance": [
+      "Requests without a valid token are rejected",
+      "A WebSocket upgrade from a foreign origin is rejected, so a web page cannot talk to the local daemon",
+      "A turn streams over WebSocket and can be cancelled from the client",
+      "Approval requests and answers work over the API",
+      "docs/API.md lists every endpoint and event"
+    ],
+    "checks": [
+      {
+        "name": "api tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestRequiresToken",
+          "TestRejectsForeignWebSocketOrigin",
+          "TestNoPermissiveCORS",
+          "TestTurnStreamsOverWebSocketAndCancels",
+          "TestApprovalFlowOverAPI"
+        ]
+      },
+      {
+        "name": "api doc",
+        "file": "docs/API.md"
+      }
+    ],
+    "paths": [
+      "internal/api/",
+      "docs/API.md"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P1-015",
+    "phase": 1,
+    "title": "Go client and the aotus command",
+    "status": "todo",
+    "depends_on": [
+      "P1-014"
+    ],
+    "requirements": [
+      "F2",
+      "F3"
+    ],
+    "description": "Build internal/client (discover the running daemon through the discovery file, authenticate, call the API, stream events) and cmd/aotus on top of it for development, tests and headless use: status, profiles, employees, chat, approvals. Neither imports daemon internals.",
+    "acceptance": [
+      "The client finds a running daemon through the discovery file",
+      "List, create, pause and delete employees; chat with streaming; answer approvals",
+      "The architecture check proves the client and the command import only internal/client and internal/version"
+    ],
+    "checks": [
+      {
+        "name": "client tests",
+        "pkg": "./internal/client",
+        "tests": [
+          "TestClientDiscoversDaemon",
+          "TestClientListsEmployees",
+          "TestClientStreamsTurn",
+          "TestClientAnswersApproval"
+        ]
+      },
+      {
+        "name": "aotus command tests",
+        "pkg": "./cmd/aotus",
+        "tests": [
+          "TestStatusCommandPrintsDaemonState"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/client/",
+      "cmd/aotus/"
+    ],
+    "docs": [
+      "docs/API.md"
+    ]
+  },
+  {
+    "id": "P1-016",
+    "phase": 1,
+    "title": "Desktop stack spike: Wails version and frontend framework",
+    "status": "todo",
+    "depends_on": [
+      "P1-015"
+    ],
+    "requirements": [
+      "F16"
+    ],
+    "description": "Prototype a window and a tray entry that talks to the daemon, with Wails v2 and with Wails v3 (beta), and a minimal chat list in Svelte and in Preact (TypeScript). Prerequisites on the machine: a C compiler, Node, and on Linux the WebKitGTK development packages (on Fedora, webkit2gtk4.1-devel). Measure memory of the window with a long message history, check the tray, check behavior on the Linux distributions we target, and judge stability. Record the result in docs/research/desktop-spike.md and decide in ADR 0010.",
+    "acceptance": [
+      "docs/research/desktop-spike.md compares Wails v2 and v3 on tray, Linux support, stability and memory with measured numbers",
+      "It compares Svelte and Preact on size, memory with 1000 messages and effort",
+      "ADR 0010 decides the Wails version and the frontend framework and states the native build prerequisites per operating system",
+      "The spike code is not merged into product packages"
+    ],
+    "checks": [
+      {
+        "name": "desktop spike",
+        "file": "docs/research/desktop-spike.md",
+        "contains": [
+          "Wails v2",
+          "Wails v3",
+          "tray",
+          "Linux",
+          "memory",
+          "Svelte",
+          "Preact"
+        ]
+      },
+      {
+        "name": "desktop stack ADR",
+        "file": "docs/DECISIONS/0010-desktop-stack.md",
+        "contains": [
+          "Status: accepted",
+          "Wails",
+          "Frontend"
+        ]
+      }
+    ],
+    "paths": [
+      "docs/research/desktop-spike.md",
+      "docs/DECISIONS/0010-desktop-stack.md"
+    ],
+    "docs": [
+      "docs/DECISIONS/0007-desktop-app-with-wails.md",
+      "docs/API.md"
+    ]
+  },
+  {
+    "id": "P1-017",
+    "phase": 1,
+    "title": "Desktop app: window, tray, employees, chat and approvals",
+    "status": "todo",
+    "depends_on": [
+      "P1-016"
+    ],
+    "requirements": [
+      "F2",
+      "F3",
+      "F4",
+      "F16"
+    ],
+    "description": "Build cmd/aotus-desktop (build tag desktop) with the stack decided in ADR 0010. On start it finds a running daemon through the discovery file or starts aotusd; closing the window leaves the daemon and its agents running and a tray entry reopens it. Screens: profiles (link a subscription, see login status and limits), employee list, create employee, chat with streaming and cancel, approvals, history. Keep memory low: virtualized message list, history loaded on demand, incremental streaming.",
+    "acceptance": [
+      "The app reuses a running daemon or starts one, and never embeds it",
+      "Closing the window keeps the daemon and its sessions running; the tray entry reopens the window",
+      "A user can link a profile, create an employee, chat with streaming, cancel and answer approvals",
+      "Long histories are virtualized and loaded on demand; memory with 1000 messages is measured and recorded in docs/BENCHMARKS.md",
+      "The app builds with go build -tags desktop on Windows, macOS and Linux"
+    ],
+    "checks": [
+      {
+        "name": "desktop app tests",
+        "pkg": "./cmd/aotus-desktop",
+        "tests": [
+          "TestStartsDaemonWhenNoneIsRunning",
+          "TestReusesRunningDaemon",
+          "TestClosingWindowKeepsDaemonRunning",
+          "TestStreamsChatFromDaemon"
+        ],
+        "tags": [
+          "desktop"
+        ]
+      },
+      {
+        "name": "desktop app builds",
+        "cmd": [
+          "go",
+          "build",
+          "-tags",
+          "desktop",
+          "./cmd/aotus-desktop"
+        ]
+      },
+      {
+        "name": "web tab memory recorded",
+        "file": "docs/BENCHMARKS.md",
+        "contains": [
+          "Desktop window memory"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/"
+    ],
+    "docs": [
+      "docs/DECISIONS/0007-desktop-app-with-wails.md",
+      "docs/DECISIONS/0010-desktop-stack.md",
+      "docs/API.md"
+    ]
+  },
+  {
+    "id": "P1-018",
+    "phase": 1,
+    "title": "Packaging and CI on every operating system",
+    "status": "todo",
+    "depends_on": [
+      "P1-017"
+    ],
+    "requirements": [
+      "N8"
+    ],
+    "description": "CI matrix that runs the tests and builds the desktop app natively on ubuntu, macOS and Windows runners and cross-builds the daemon for the five targets without cgo. Release workflow producing installers or portable packages per operating system (the Wails packaging output), with the version injected through ldflags. Write docs/QUICKSTART.md covering native prerequisites.",
+    "acceptance": [
+      "CI runs the tests on ubuntu, macos and windows runners and builds the desktop app with -tags desktop on each",
+      "The daemon cross-builds for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64 with CGO_ENABLED=0",
+      "A release workflow produces a package per operating system",
+      "docs/QUICKSTART.md takes a new user from download to a working employee",
+      "Release binaries report their version"
+    ],
+    "checks": [
+      {
+        "name": "ci matrix",
+        "file": ".github/workflows/ci.yml",
+        "contains": [
+          "ubuntu-latest",
+          "macos-latest",
+          "windows-latest",
+          "-tags desktop"
+        ]
+      },
+      {
+        "name": "release workflow",
+        "file": ".github/workflows/release.yml"
+      },
+      {
+        "name": "quickstart",
+        "file": "docs/QUICKSTART.md"
+      },
+      {
+        "name": "version test",
+        "pkg": "./internal/version",
+        "tests": [
+          "TestVersionDefault"
+        ]
+      }
+    ],
+    "paths": [
+      ".github/workflows/",
+      "docs/QUICKSTART.md",
+      "Makefile"
+    ],
+    "docs": [
+      "docs/CONVENTIONS.md",
+      "docs/DECISIONS/0010-desktop-stack.md"
+    ]
+  },
+  {
+    "id": "P1-019",
+    "phase": 1,
+    "title": "Performance budgets as tests",
+    "status": "todo",
+    "depends_on": [
+      "P1-010",
+      "P1-014"
+    ],
+    "requirements": [
+      "N1",
+      "N2",
+      "N3",
+      "N4",
+      "N6",
+      "N7"
+    ],
+    "description": "Turn the performance budgets into automated tests in internal/bench and record the measured values in docs/BENCHMARKS.md. A budget that is exceeded fails the build. N2 and N3 are measured against a scripted fake CLI so subscription time is excluded.",
+    "acceptance": [
+      "Each budget has a test that fails when exceeded",
+      "docs/BENCHMARKS.md has a table of measured values per platform",
+      "If measurements show a budget is unrealistic, the PRD and requirements.json are updated with the evidence instead of loosening the test silently"
+    ],
+    "checks": [
+      {
+        "name": "budget tests",
+        "pkg": "./internal/bench",
+        "tests": [
+          "TestStartupBudget",
+          "TestTurnOverheadBudget",
+          "TestStreamLatencyBudget",
+          "TestIdleMemoryBudget",
+          "TestBinarySizeBudget",
+          "TestResumeBudget"
+        ]
+      },
+      {
+        "name": "benchmarks doc",
+        "file": "docs/BENCHMARKS.md",
+        "contains": [
+          "Startup",
+          "Idle RSS",
+          "Per-turn overhead"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/bench/",
+      "docs/BENCHMARKS.md"
+    ],
+    "docs": [
+      "docs/PRD.md"
+    ]
+  }
+]

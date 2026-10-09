@@ -1,0 +1,135 @@
+[
+  {
+    "id": "P0-000",
+    "phase": 0,
+    "title": "Bootstrap the harness",
+    "status": "done",
+    "description": "The repository has the crew CLI, harness data files, architecture rules, linters, CI workflow and the documents every model reads first. This task exists so the harness validates itself.",
+    "acceptance": [
+      "go run ./cmd/crew verify passes",
+      "AGENTS.md, docs/ARCHITECTURE.md, docs/CONVENTIONS.md and docs/PRD.md exist",
+      "harness unit tests cover lint, status, state transitions and architecture rules"
+    ],
+    "checks": [
+      {
+        "name": "agent entry point",
+        "file": "AGENTS.md",
+        "contains": [
+          "crew next",
+          "crew done"
+        ]
+      },
+      {
+        "name": "architecture doc",
+        "file": "docs/ARCHITECTURE.md"
+      },
+      {
+        "name": "harness tests",
+        "pkg": "./internal/harness",
+        "tests": [
+          "TestLintAcceptsRepositoryHarness",
+          "TestLintCatchesDependencyCycle",
+          "TestStartEnforcesWorkflow",
+          "TestCheckArchReportsViolations",
+          "TestGoTestsCheckRequiresNamedTests"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/crew/",
+      "internal/harness/",
+      "harness/",
+      "docs/",
+      "AGENTS.md",
+      "Makefile",
+      ".golangci.yml",
+      ".github/workflows/ci.yml"
+    ],
+    "docs": [
+      "AGENTS.md"
+    ],
+    "completed_at": "2026-10-09"
+  },
+  {
+    "id": "P0-001",
+    "phase": 0,
+    "title": "Verify provider terms of use and record the integration decision",
+    "status": "done",
+    "depends_on": [
+      "P0-000"
+    ],
+    "requirements": [
+      "L1"
+    ],
+    "description": "docs/research/provider-terms.md holds the research of 2026-10-09 (written by a research agent; the fetch tool summarizes pages, and the OpenAI and xAI terms returned HTTP 403, so those clauses are unverified). Re-verify the key quotes on the live pages, mark what stays unverified, and finish with the 'Decision:' line that says which providers and which integration modes (structured, terminal, api) the MVP enables by default, following ADR 0008.",
+    "acceptance": [
+      "The quotes that the decision relies on are re-checked on the live pages, with URL and date",
+      "Clauses that could not be verified are labeled as unverified",
+      "The document ends with a line starting with 'Decision:' naming the MVP providers, the default mode per provider and the API-key fallback",
+      "Open items are listed: written confirmation from Anthropic, access to the xAI and OpenAI terms"
+    ],
+    "checks": [
+      {
+        "name": "terms research",
+        "file": "docs/research/provider-terms.md",
+        "contains": [
+          "Anthropic",
+          "OpenAI",
+          "xAI",
+          "Google",
+          "Decision:"
+        ]
+      }
+    ],
+    "paths": [
+      "docs/research/provider-terms.md"
+    ],
+    "docs": [
+      "docs/research/provider-terms.md",
+      "docs/DECISIONS/0003-official-clis-only.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
+    ],
+    "completed_at": "2026-10-09"
+  },
+  {
+    "id": "P0-004",
+    "phase": 0,
+    "title": "Decide project name and license",
+    "status": "done",
+    "depends_on": [
+      "P0-000"
+    ],
+    "requirements": [
+      "R1"
+    ],
+    "description": "Pick the definitive name, check the domain and the package/organization names, and pick the license (Apache-2.0 or MIT). Record it as an ADR and update the module path if the name changes.",
+    "acceptance": [
+      "docs/DECISIONS/0004-name-and-license.md is accepted and states the name, the license and the reasons",
+      "A LICENSE file exists at the repository root and matches the ADR",
+      "If the name changed, go.mod, AGENTS.md and the docs use the new name"
+    ],
+    "checks": [
+      {
+        "name": "decision record",
+        "file": "docs/DECISIONS/0004-name-and-license.md",
+        "contains": [
+          "Status: accepted",
+          "License:"
+        ]
+      },
+      {
+        "name": "license file",
+        "file": "LICENSE"
+      }
+    ],
+    "paths": [
+      "docs/DECISIONS/0004-name-and-license.md",
+      "LICENSE",
+      "go.mod"
+    ],
+    "docs": [
+      "docs/DECISIONS/0001-go-core.md"
+    ],
+    "completed_at": "2026-10-09"
+  }
+]

@@ -1,0 +1,78 @@
+[
+  {
+    "id": 0,
+    "name": "Validate",
+    "goal": "Settle the legal ground, the name and the license before building the product.",
+    "planned": true,
+    "gate": [
+      "Provider terms of use are verified and the integration decision is documented",
+      "Project name and license are decided"
+    ],
+    "gate_checks": [
+      {
+        "name": "provider terms decision recorded",
+        "file": "docs/research/provider-terms.md",
+        "contains": [
+          "Decision:"
+        ]
+      }
+    ],
+    "gate_passed_at": "2026-10-09"
+  },
+  {
+    "id": 1,
+    "name": "MVP desktop",
+    "goal": "On a personal PC, a Wails desktop app over a background daemon that runs employees as independent official CLI sessions (Claude Code, Codex CLI) with several subscription profiles.",
+    "planned": true,
+    "gate": [
+      "Every F1-F6, F16, F17, S1-S3 and N1-N4, N6-N8 requirement is covered by passing tests",
+      "The daemon builds for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64 without cgo",
+      "The desktop app builds natively on Windows, macOS and Linux in CI",
+      "docs/BENCHMARKS.md records measured values for every performance budget",
+      "A new user can go from download to a working employee following docs/QUICKSTART.md"
+    ],
+    "gate_checks": [
+      {
+        "name": "benchmarks recorded",
+        "file": "docs/BENCHMARKS.md",
+        "contains": [
+          "Startup",
+          "Idle RSS",
+          "Per-turn overhead"
+        ]
+      },
+      {
+        "name": "quickstart exists",
+        "file": "docs/QUICKSTART.md"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Remote access",
+    "goal": "The same daemon runs on a VPS and the desktop app connects to it over Tailscale (tsnet) with Tailscale identity.",
+    "planned": false,
+    "gate": []
+  },
+  {
+    "id": 3,
+    "name": "Collaborate",
+    "goal": "Employees hand work to each other, run on schedules and triggers, browse safely, share signed skills and run in OS-level sandboxes.",
+    "planned": false,
+    "gate": []
+  },
+  {
+    "id": 4,
+    "name": "Learn",
+    "goal": "Employees learn workflows from recordings; users see costs and get notifications.",
+    "planned": false,
+    "gate": []
+  },
+  {
+    "id": 5,
+    "name": "Teams",
+    "goal": "Several users share employees and memory on one daemon.",
+    "planned": false,
+    "gate": []
+  }
+]

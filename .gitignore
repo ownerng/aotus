@@ -1,0 +1,19 @@
+# build output
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# local data and secrets
+.aotus/
+.env
+.env.*
+*.key
+*.pem
+
+# editors and OS
+.idea/
+.vscode/
+.DS_Store
