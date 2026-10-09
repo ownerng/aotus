@@ -4,6 +4,8 @@ A polished interface for working in the agentic era: turn the AI subscriptions y
 
 Status: pre-MVP. See `docs/STATUS.md`.
 
+Start with `docs/QUICKSTART.md`.
+
 ## For contributors and AI models
 
 Read `AGENTS.md`. The short version:

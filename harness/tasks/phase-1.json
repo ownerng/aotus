@@ -792,10 +792,9 @@
     "id": "P1-018",
     "phase": 1,
     "title": "Packaging and CI on every operating system",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
-      "P1-017",
-      "P1-021"
+      "P1-017"
     ],
     "requirements": [
       "N8"
@@ -843,7 +842,9 @@
     "docs": [
       "docs/CONVENTIONS.md",
       "docs/DECISIONS/0010-desktop-stack.md"
-    ]
+    ],
+    "notes": "Dependency on P1-021 removed: the Windows runner added here is how P1-021 gets its evidence, so P1-021 now depends on this task instead (it was circular).",
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-019",
@@ -960,6 +961,7 @@
     "title": "proc: pseudo-terminal on Windows (ConPTY), verified on Windows",
     "status": "todo",
     "depends_on": [
+      "P1-018",
       "P1-020"
     ],
     "requirements": [
@@ -967,7 +969,7 @@
       "F16",
       "N8"
     ],
-    "description": "Implement the same PTY API of P1-020 on Windows with ConPTY, assigning the program to the Job Object so cancel kills its whole tree. This could not be run where the project is developed (Linux), so the task is finished only with evidence from a real Windows 10/11 machine or the Windows CI runner: run go test ./internal/proc -run TestPTY -v there and paste the result and the OS version into docs/research/windows-verification.md. The same document records any other Windows-only check found by earlier tasks (Job Object tree kill in internal/proc, autostart in internal/lifecycle).",
+    "description": "Implement the same PTY API of P1-020 on Windows with ConPTY, assigning the program to the Job Object so cancel kills its whole tree. This could not be run where the project is developed (Linux), so the task is finished only with evidence from a real Windows 10/11 machine or the Windows CI runner: run go test ./internal/proc -run TestPTY -v there and paste the result and the OS version into docs/research/windows-verification.md. The same document records any other Windows-only check found by earlier tasks (Job Object tree kill in internal/proc, autostart in internal/lifecycle). The Windows runner of the CI matrix (P1-018) is the quickest source of the evidence.",
     "acceptance": [
       "The PTY tests of P1-020 pass on Windows with ConPTY",
       "Cancel kills the whole tree on Windows (Job Object), including the existing proc tests",

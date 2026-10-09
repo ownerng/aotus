@@ -1,0 +1,108 @@
+name: release
+
+# Pushing a tag such as v0.1.0 builds one portable package per operating system
+# and attaches them to a draft GitHub release. The version is injected with
+# ldflags, so `aotusd --version` reports it.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: package ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-amd64, os: ubuntu-latest, flags: "-tags desktop,gtk3", exe: "" }
+          - { name: macos-arm64, os: macos-latest, flags: "-tags desktop", exe: "" }
+          - { name: windows-amd64, os: windows-latest, flags: "-tags desktop", exe: ".exe" }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: "Linux native libraries for the WebView"
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: Wails CLI
+        run: go install -tags "${{ runner.os == 'Linux' && 'gtk3' || '' }}" github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
+      - name: Frontend
+        run: |
+          cd cmd/aotus-desktop
+          wails3 generate bindings -f "${{ matrix.flags }}" -ts -d frontend/bindings
+          cd frontend && npm install --no-audit --no-fund && npm run build
+      - name: Build
+        env:
+          LDFLAGS: -s -w -X aotus/internal/version.Version=${{ github.ref_name }}
+        run: |
+          mkdir -p dist/aotus
+          CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/aotus/aotusd${{ matrix.exe }} ./cmd/aotusd
+          CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/aotus/aotus${{ matrix.exe }} ./cmd/aotus
+          CGO_ENABLED=1 go build -trimpath ${{ matrix.flags }} -ldflags "$LDFLAGS" -o dist/aotus/aotus-desktop${{ matrix.exe }} ./cmd/aotus-desktop
+          cp LICENSE README.md docs/QUICKSTART.md dist/aotus/
+          ./dist/aotus/aotusd${{ matrix.exe }} --version
+      - name: Archive
+        run: |
+          cd dist
+          if [ "${{ runner.os }}" = "Windows" ]; then 7z a "aotus-${{ github.ref_name }}-${{ matrix.name }}.zip" aotus; else tar czf "aotus-${{ github.ref_name }}-${{ matrix.name }}.tar.gz" aotus; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aotus-${{ matrix.name }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+
+  daemon-only:
+    name: daemon for other targets
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the daemon and the CLI (no cgo)
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist/aotus
+          go build -trimpath -ldflags "-s -w -X aotus/internal/version.Version=${{ github.ref_name }}" -o dist/aotus/ ./cmd/aotusd ./cmd/aotus
+          cp LICENSE README.md dist/aotus/
+          cd dist && tar czf "aotus-daemon-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" aotus
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aotus-daemon-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+
+  publish:
+    needs: [package, daemon-only]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" artifacts/* --draft --generate-notes --repo "${{ github.repository }}"

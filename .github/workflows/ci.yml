@@ -62,3 +62,41 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+
+  desktop:
+    name: desktop app on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, flags: "-tags desktop,gtk3" }
+          - { os: macos-latest, flags: "-tags desktop" }
+          - { os: windows-latest, flags: "-tags desktop" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: "Linux native libraries for the WebView"
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev xvfb
+      - name: Wails CLI (generates the TypeScript bindings)
+        run: go install -tags "${{ runner.os == 'Linux' && 'gtk3' || '' }}" github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
+      - name: Bindings and frontend
+        run: |
+          cd cmd/aotus-desktop
+          wails3 generate bindings -f "${{ matrix.flags }}" -ts -d frontend/bindings
+          cd frontend
+          npm install --no-audit --no-fund
+          npm run check
+          npm run build
+      - name: Build the desktop app
+        run: go build ${{ matrix.flags }} -o ${{ runner.temp }}/aotus-desktop ./cmd/aotus-desktop
+      - name: Test the desktop app
+        run: go test -count=1 ${{ matrix.flags }} ./cmd/aotus-desktop
