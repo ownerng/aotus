@@ -33,8 +33,6 @@ type conPTY struct {
 	closed bool
 }
 
-var variant = os.Getenv("AOTUS_CONPTY_VARIANT") // TEMP
-
 func openPTY(spec PTYSpec) (ptyBackend, error) {
 	// Two pipes: the pseudo-console reads input from inR and writes output to outW.
 	var inR, inW, outR, outW windows.Handle
@@ -55,11 +53,8 @@ func openPTY(spec PTYSpec) (ptyBackend, error) {
 		return nil, fmt.Errorf("proc: creating the pseudo-console (needs Windows 10 1809 or newer): %w", err)
 	}
 	// The pseudo-console keeps its own copies of its ends.
-	keep := strings.Contains(variant, "keep")
-	if !keep {
-		_ = windows.CloseHandle(inR)
-		_ = windows.CloseHandle(outW)
-	}
+	_ = windows.CloseHandle(inR)
+	_ = windows.CloseHandle(outW)
 
 	c := &conPTY{
 		hpc: hpc,
@@ -86,6 +81,10 @@ func (c *conPTY) start(spec PTYSpec) error {
 
 	si := windows.StartupInfoEx{ProcThreadAttributeList: attrs.List()}
 	si.Cb = uint32(unsafe.Sizeof(si))
+	// Without this flag the program inherits OUR standard handles and writes to
+	// our stdout instead of the pseudo-console. With it and no handles given, it
+	// gets the console's.
+	si.Flags |= windows.STARTF_USESTDHANDLES
 
 	cmdline, err := windows.UTF16PtrFromString(windows.ComposeCommandLine(append([]string{spec.Path}, spec.Args...)))
 	if err != nil {
@@ -101,10 +100,6 @@ func (c *conPTY) start(spec PTYSpec) error {
 	if err != nil {
 		return err
 	}
-	var envPtr *uint16 = &env[0]
-	if strings.Contains(variant, "noenv") {
-		envPtr = nil
-	}
 
 	job, err := newKillOnCloseJob()
 	if err != nil {
@@ -112,30 +107,18 @@ func (c *conPTY) start(spec PTYSpec) error {
 	}
 	var pi windows.ProcessInformation
 	flags := uint32(windows.EXTENDED_STARTUPINFO_PRESENT | windows.CREATE_UNICODE_ENVIRONMENT | windows.CREATE_SUSPENDED)
-	if strings.Contains(variant, "nosusp") {
-		flags &^= windows.CREATE_SUSPENDED
-	}
-	if err := windows.CreateProcess(nil, cmdline, nil, nil, false, flags, envPtr, dir, &si.StartupInfo, &pi); err != nil {
+	if err := windows.CreateProcess(nil, cmdline, nil, nil, false, flags, &env[0], dir, &si.StartupInfo, &pi); err != nil {
 		_ = windows.CloseHandle(job)
 		return err
 	}
 	// Created suspended so that it is in the job before its first instruction:
 	// nothing it starts can escape.
-	if strings.Contains(variant, "nojob") {
-		goto skipjob
-	}
 	if err := windows.AssignProcessToJobObject(job, pi.Process); err != nil {
 		_ = windows.TerminateProcess(pi.Process, 1)
 		_ = windows.CloseHandle(pi.Process)
 		_ = windows.CloseHandle(pi.Thread)
 		_ = windows.CloseHandle(job)
 		return err
-	}
-skipjob:
-	if strings.Contains(variant, "nosusp") {
-		_ = windows.CloseHandle(pi.Thread)
-		c.proc, c.job, c.pid = pi.Process, job, int(pi.ProcessId)
-		return nil
 	}
 	if _, err := windows.ResumeThread(pi.Thread); err != nil {
 		_ = windows.TerminateJobObject(job, 1)
@@ -214,7 +197,7 @@ func (c *conPTY) Resize(rows, cols uint16) error {
 func (c *conPTY) Terminate(bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.job != 0 && !strings.Contains(variant, "noterm") {
+	if c.job != 0 {
 		_ = windows.TerminateJobObject(c.job, 1)
 	}
 }
@@ -230,10 +213,7 @@ func (c *conPTY) Wait() Exit {
 	// closed, and closing it can wait for the output to be read, so do it while
 	// the reader keeps draining. It also ends the output pipe, which is how the
 	// reader learns the program is over.
-	fmt.Fprintf(os.Stderr, "DEBUG-CONPTY exit pid=%d code=%d\n", c.pid, e.Code) // TEMP
-	if !strings.Contains(variant, "noclose") {
-		go c.closeConsole()
-	}
+	go c.closeConsole()
 	return e
 }
 
