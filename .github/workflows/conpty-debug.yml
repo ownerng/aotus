@@ -4,56 +4,17 @@ on:
   push:
     branches: [conpty-debug]
 jobs:
-  reference:
+  variants:
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26.9"
-      - name: Reference ConPTY library
+          go-version-file: go.mod
+      - name: Variants
         shell: bash
         run: |
-          mkdir ref && cd ref
-          cat > main.go <<'GO'
-          package main
-
-          import (
-          	"context"
-          	"fmt"
-          	"io"
-          	"time"
-
-          	"github.com/UserExistsError/conpty"
-          )
-
-          func main() {
-          	cpty, err := conpty.Start(`c:\windows\system32\cmd.exe /c echo reference-works`)
-          	if err != nil {
-          		fmt.Println("start error:", err)
-          		return
-          	}
-          	defer cpty.Close()
-          	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-          	defer cancel()
-          	go func() {
-          		code, err := cpty.Wait(ctx)
-          		fmt.Printf("wait: code=%d err=%v\n", code, err)
-          	}()
-          	var buf []byte
-          	go func() {
-          		tmp := make([]byte, 4096)
-          		for {
-          			n, err := cpty.Read(tmp)
-          			buf = append(buf, tmp[:n]...)
-          			if err != nil {
-          				fmt.Println("read err:", err)
-          				return
-          			}
-          		}
-          	}()
-          	time.Sleep(3 * time.Second)
-          	fmt.Printf("got %d bytes: %q\n", len(buf), buf)
-          	_ = io.EOF
-          }
-          GO
-          go mod init ref && go get github.com/UserExistsError/conpty@latest && go run .
+          for v in noclose noterm noclose-noterm; do
+            echo "=== variant $v"
+            AOTUS_CONPTY_VARIANT=$v go test -count=1 -run 'TestPTYWindowsCmdEcho' -v ./internal/proc 2>&1 | grep -E "^(---|ok|FAIL|\s+pty_windows)|DEBUG" | cut -c1-500 || true
+          done

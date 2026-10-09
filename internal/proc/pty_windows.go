@@ -214,7 +214,7 @@ func (c *conPTY) Resize(rows, cols uint16) error {
 func (c *conPTY) Terminate(bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.job != 0 {
+	if c.job != 0 && !strings.Contains(variant, "noterm") {
 		_ = windows.TerminateJobObject(c.job, 1)
 	}
 }
@@ -231,7 +231,9 @@ func (c *conPTY) Wait() Exit {
 	// the reader keeps draining. It also ends the output pipe, which is how the
 	// reader learns the program is over.
 	fmt.Fprintf(os.Stderr, "DEBUG-CONPTY exit pid=%d code=%d\n", c.pid, e.Code) // TEMP
-	go c.closeConsole()
+	if !strings.Contains(variant, "noclose") {
+		go c.closeConsole()
+	}
 	return e
 }
 
