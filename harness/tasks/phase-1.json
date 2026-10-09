@@ -94,7 +94,7 @@
     "id": "P1-003",
     "phase": 1,
     "title": "Store: SQLite in WAL mode with migrations",
-    "status": "todo",
+    "status": "done",
     "requirements": [
       "F5"
     ],
@@ -133,7 +133,8 @@
     "docs": [
       "docs/ARCHITECTURE.md",
       "docs/CONVENTIONS.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-004",

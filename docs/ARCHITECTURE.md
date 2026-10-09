@@ -40,11 +40,12 @@ An arrow means "may import". Anything not listed is forbidden. `harness/architec
 | Package | Responsibility | May import |
 | --- | --- | --- |
 | `internal/version` | build version | - |
+| `internal/datadir` | paths and permissions of the data directory | - |
 | `internal/proc` | start/stop child processes, process-tree kill, line streaming, ring buffer, PTY (if adopted) | version |
-| `internal/store` | SQLite (WAL, pure-Go driver), migrations, data dir layout, memory | version |
-| `internal/workspace` | per-employee folder, path-escape protection, scrubbed environment, trash | version |
-| `internal/lifecycle` | single-instance lock, discovery file, autostart per OS | version |
-| `internal/netaccess` | bind rules, local token (tsnet in phase 2) | version |
+| `internal/store` | SQLite (WAL, pure-Go driver), migrations, memory | datadir, version |
+| `internal/workspace` | per-employee folder, path-escape protection, scrubbed environment, trash | datadir, version |
+| `internal/lifecycle` | single-instance lock, discovery file, autostart per OS | datadir, version |
+| `internal/netaccess` | bind rules, local token (tsnet in phase 2) | datadir, version |
 | `internal/provider` | provider adapters, profiles, login detection, normalized events | proc, version |
 | `internal/permissions` | action classification, approvals, audit log | store, version |
 | `internal/orchestrator` | employees, sessions, turns, streaming, cancel, parallelism, restart policy | provider, proc, workspace, permissions, store, version |

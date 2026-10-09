@@ -1,28 +1,152 @@
 {
   "layers": [
-    { "package": "internal/version", "why": "leaf", "may_import": [] },
-    { "package": "internal/harness", "why": "project tooling, standard library only so it works when the product does not compile", "may_import": [] },
-    { "package": "internal/proc", "why": "process supervision primitives; the only product package that spawns processes", "may_import": ["internal/version"] },
-    { "package": "internal/store", "why": "persistence is a leaf", "may_import": ["internal/version"] },
-    { "package": "internal/workspace", "why": "per-employee folders and scrubbed environments are a leaf", "may_import": ["internal/version"] },
-    { "package": "internal/lifecycle", "why": "single instance, discovery file and autostart are a leaf", "may_import": ["internal/version"] },
-    { "package": "internal/netaccess", "why": "bind rules and local token are a leaf", "may_import": ["internal/version"] },
-    { "package": "internal/provider", "why": "adapters and profiles start processes only through proc and know nothing about the rest of the daemon", "may_import": ["internal/proc", "internal/version"] },
-    { "package": "internal/permissions", "why": "approvals and audit only need storage", "may_import": ["internal/store", "internal/version"] },
-    { "package": "internal/orchestrator", "why": "runs employees and sessions; must not know about HTTP", "may_import": ["internal/provider", "internal/proc", "internal/workspace", "internal/permissions", "internal/store", "internal/version"] },
-    { "package": "internal/api", "why": "the only contract between daemon and clients; never reaches into providers or processes", "may_import": ["internal/orchestrator", "internal/permissions", "internal/store", "internal/netaccess", "internal/version"] },
-    { "package": "internal/client", "why": "Go client for the daemon API, shared by every Go client; knows nothing about daemon internals", "may_import": ["internal/version"] },
-    { "package": "internal/bench", "why": "performance budgets exercise the whole daemon", "may_import": ["*"] },
-    { "package": "cmd/aotusd", "why": "composition root of the daemon", "may_import": ["*"] },
-    { "package": "cmd/aotus", "why": "small CLI client: talks to the daemon only through internal/client", "may_import": ["internal/client", "internal/version"] },
-    { "package": "cmd/aotus-desktop", "why": "Wails desktop app (build tag desktop): a client, talks to the daemon only through internal/client", "may_import": ["internal/client", "internal/version"] },
-    { "package": "cmd/crew", "why": "harness CLI", "may_import": ["internal/harness"] }
+    {
+      "package": "internal/version",
+      "why": "leaf",
+      "may_import": []
+    },
+    {
+      "package": "internal/harness",
+      "why": "project tooling, standard library only so it works when the product does not compile",
+      "may_import": []
+    },
+    {
+      "package": "internal/datadir",
+      "why": "paths of the data directory are a leaf shared by store, workspace, lifecycle and netaccess",
+      "may_import": []
+    },
+    {
+      "package": "internal/proc",
+      "why": "process supervision primitives; the only product package that spawns processes",
+      "may_import": [
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/store",
+      "why": "persistence is a leaf",
+      "may_import": [
+        "internal/datadir",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/workspace",
+      "why": "per-employee folders and scrubbed environments are a leaf",
+      "may_import": [
+        "internal/datadir",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/lifecycle",
+      "why": "single instance, discovery file and autostart are a leaf",
+      "may_import": [
+        "internal/datadir",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/netaccess",
+      "why": "bind rules and local token are a leaf",
+      "may_import": [
+        "internal/datadir",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/provider",
+      "why": "adapters and profiles start processes only through proc and know nothing about the rest of the daemon",
+      "may_import": [
+        "internal/proc",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/permissions",
+      "why": "approvals and audit only need storage",
+      "may_import": [
+        "internal/store",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/orchestrator",
+      "why": "runs employees and sessions; must not know about HTTP",
+      "may_import": [
+        "internal/provider",
+        "internal/proc",
+        "internal/workspace",
+        "internal/permissions",
+        "internal/store",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/api",
+      "why": "the only contract between daemon and clients; never reaches into providers or processes",
+      "may_import": [
+        "internal/orchestrator",
+        "internal/permissions",
+        "internal/store",
+        "internal/netaccess",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/client",
+      "why": "Go client for the daemon API, shared by every Go client; knows nothing about daemon internals",
+      "may_import": [
+        "internal/version"
+      ]
+    },
+    {
+      "package": "internal/bench",
+      "why": "performance budgets exercise the whole daemon",
+      "may_import": [
+        "*"
+      ]
+    },
+    {
+      "package": "cmd/aotusd",
+      "why": "composition root of the daemon",
+      "may_import": [
+        "*"
+      ]
+    },
+    {
+      "package": "cmd/aotus",
+      "why": "small CLI client: talks to the daemon only through internal/client",
+      "may_import": [
+        "internal/client",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "cmd/aotus-desktop",
+      "why": "Wails desktop app (build tag desktop): a client, talks to the daemon only through internal/client",
+      "may_import": [
+        "internal/client",
+        "internal/version"
+      ]
+    },
+    {
+      "package": "cmd/crew",
+      "why": "harness CLI",
+      "may_import": [
+        "internal/harness"
+      ]
+    }
   ],
   "restricted_imports": [
     {
       "import": "os/exec",
       "why": "spawning processes is a security boundary: only proc, project tooling and benchmarks may do it",
-      "allowed_in": ["internal/proc", "internal/harness", "internal/bench"]
+      "allowed_in": [
+        "internal/proc",
+        "internal/harness",
+        "internal/bench"
+      ]
     },
     {
       "import": "C",
