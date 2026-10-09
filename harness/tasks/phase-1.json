@@ -627,7 +627,7 @@
     "id": "P1-015",
     "phase": 1,
     "title": "Go client and the aotus command",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-014"
     ],
@@ -666,7 +666,8 @@
     ],
     "docs": [
       "docs/API.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-016",

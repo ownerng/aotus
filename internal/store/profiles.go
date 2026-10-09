@@ -62,8 +62,15 @@ func scanProfile(r scanner) (ProfileRow, error) {
 	return p, nil
 }
 
+// RemovedProfileID is the placeholder that employees deleted earlier point at
+// once their profile has been removed.
+const RemovedProfileID = "removed"
+
 // Profile returns one profile.
 func (s *Store) Profile(ctx context.Context, id string) (ProfileRow, error) {
+	if id == RemovedProfileID {
+		return ProfileRow{}, ErrNotFound
+	}
 	p, err := scanProfile(s.db.QueryRowContext(ctx, `SELECT `+profileColumns+` FROM profiles WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProfileRow{}, ErrNotFound
@@ -73,7 +80,7 @@ func (s *Store) Profile(ctx context.Context, id string) (ProfileRow, error) {
 
 // Profiles lists all profiles, oldest first.
 func (s *Store) Profiles(ctx context.Context) ([]ProfileRow, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+profileColumns+` FROM profiles ORDER BY created_at, id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+profileColumns+` FROM profiles WHERE id <> 'removed' ORDER BY created_at, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -89,16 +96,29 @@ func (s *Store) Profiles(ctx context.Context) ([]ProfileRow, error) {
 	return out, rows.Err()
 }
 
-// DeleteProfile removes a profile; ErrInUse if an employee still uses it.
+// DeleteProfile removes a profile; ErrInUse if an employee that is not deleted
+// still uses it. Employees deleted earlier are pointed at the placeholder so
+// that their history stays.
 func (s *Store) DeleteProfile(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM profiles WHERE id = ?`, id)
+	if id == RemovedProfileID {
+		return ErrNotFound
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `UPDATE employees SET profile_id = 'removed' WHERE profile_id = ? AND state = 'deleted'`, id); err != nil {
+		return classify(err)
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM profiles WHERE id = ?`, id)
 	if err != nil {
 		return classify(err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
 func nonNilStrings(v []string) []string {

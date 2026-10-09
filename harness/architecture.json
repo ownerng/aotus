@@ -104,7 +104,9 @@
       "package": "internal/client",
       "why": "Go client for the daemon API, shared by every Go client; knows nothing about daemon internals",
       "may_import": [
-        "internal/version"
+        "internal/version",
+        "internal/datadir",
+        "internal/lifecycle"
       ]
     },
     {
@@ -126,7 +128,8 @@
       "why": "small CLI client: talks to the daemon only through internal/client",
       "may_import": [
         "internal/client",
-        "internal/version"
+        "internal/version",
+        "internal/datadir"
       ]
     },
     {
@@ -134,7 +137,8 @@
       "why": "Wails desktop app (build tag desktop): a client, talks to the daemon only through internal/client",
       "may_import": [
         "internal/client",
-        "internal/version"
+        "internal/version",
+        "internal/datadir"
       ]
     },
     {

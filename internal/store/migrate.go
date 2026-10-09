@@ -173,6 +173,18 @@ var migrations = []Migration{
 		CREATE INDEX turn_events_turn ON turn_events (turn_id, seq);
 		`,
 	},
+	{
+		Version: 6,
+		Name:    "removed_profile_placeholder",
+		SQL: `
+		-- Employees that were deleted keep their history and audit trail, and so
+		-- keep pointing at a profile. When the user removes that profile, those
+		-- employees are pointed at this placeholder instead, which never shows up
+		-- in the profile list.
+		INSERT INTO profiles (id, name, kind, binary, config_dir, created_at)
+		VALUES ('removed', '(removed profile)', 'removed', '', '', '1970-01-01T00:00:00Z');
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,

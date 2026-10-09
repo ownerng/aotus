@@ -53,6 +53,26 @@ func TestProfilesRoundTripAndAreProtectedWhileInUse(t *testing.T) {
 	if _, err := s.Profile(ctx, "nope"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing profile = %v", err)
 	}
+
+	// Once its employees are deleted the profile can go; their history stays.
+	if err := s.SetEmployeeState(ctx, "e1", StateDeleted, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteProfile(ctx, "p1"); err != nil {
+		t.Fatalf("a profile used only by deleted employees must be removable: %v", err)
+	}
+	if e, err := s.Employee(ctx, "e1"); err != nil || e.State != StateDeleted || e.ProfileID != RemovedProfileID {
+		t.Fatalf("the deleted employee = %+v, %v; want it kept, pointing at the placeholder", e, err)
+	}
+	if ps, _ := s.Profiles(ctx); len(ps) != 0 {
+		t.Fatalf("the placeholder must never be listed: %+v", ps)
+	}
+	if _, err := s.Profile(ctx, RemovedProfileID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("the placeholder is not a profile: %v", err)
+	}
+	if err := s.DeleteProfile(ctx, RemovedProfileID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("the placeholder cannot be deleted: %v", err)
+	}
 }
 
 func TestEmployeeSlugIsUniqueOnlyAmongLiveEmployees(t *testing.T) {

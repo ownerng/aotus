@@ -51,11 +51,11 @@ An arrow means "may import". Anything not listed is forbidden. `harness/architec
 | `internal/permissions` | action classification, approvals, audit log | store, version |
 | `internal/orchestrator` | employees, sessions, turns, streaming, cancel, parallelism, restart policy | provider, proc, workspace, permissions, store, version |
 | `internal/api` | HTTP + WebSocket, authentication, origin validation | orchestrator, permissions, store, netaccess, version |
-| `internal/client` | Go client of the API | version |
+| `internal/client` | Go client of the API; finds the daemon through its discovery file and token | datadir, lifecycle, version |
 | `internal/bench` | performance budgets as tests | anything |
 | `cmd/aotusd` | daemon, composition root | anything |
-| `cmd/aotus` | small CLI client for development and headless use | client, version |
-| `cmd/aotus-desktop` | Wails desktop app (build tag `desktop`) | client, version |
+| `cmd/aotus` | small CLI client for development and headless use | client, datadir, version |
+| `cmd/aotus-desktop` | Wails desktop app (build tag `desktop`) | client, datadir, version |
 | `cmd/crew` / `internal/harness` | project tooling, standard library only | - |
 
 Restricted imports: `os/exec` only in `proc`, `harness`, `bench`. `import "C"` nowhere in our code: the daemon and libraries are cgo-free; the only cgo is inside the Wails dependency, reached through `cmd/aotus-desktop`, which is behind the `desktop` build tag.
