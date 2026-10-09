@@ -209,6 +209,7 @@ func (c *conPTY) Wait() Exit {
 	// closed, and closing it can wait for the output to be read, so do it while
 	// the reader keeps draining. It also ends the output pipe, which is how the
 	// reader learns the program is over.
+	fmt.Fprintf(os.Stderr, "DEBUG-CONPTY exit pid=%d code=%d\n", c.pid, e.Code) // TEMP
 	go c.closeConsole()
 	return e
 }

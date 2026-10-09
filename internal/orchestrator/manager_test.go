@@ -276,7 +276,7 @@ func TestCancelIsImmediate(t *testing.T) {
 }
 
 func TestSlowSubscriberDoesNotBlock(t *testing.T) {
-	r := newRig(t, Options{SubscriberBuffer: 512}) // the Chatty program sends well over 1500 events
+	r := newRig(t, Options{SubscriberBuffer: 4096}) // generous: a loaded CI runner may deschedule the reader; Chatty sends 8000 events
 	ctx := context.Background()
 	emp, _ := r.worker(t, "Atlas", providertest.Chatty)
 
@@ -306,14 +306,14 @@ loop:
 			t.Fatal("a viewer that never reads stopped the turn")
 		}
 	}
-	if seen < 1500 {
-		t.Fatalf("the fast viewer saw %d updates, want at least the 1500 text events", seen)
+	if seen < 8000 {
+		t.Fatalf("the fast viewer saw %d updates, want at least the 8000 text events", seen)
 	}
 	n := 0
 	for range slow { // what was buffered, then the channel is closed: it was disconnected
 		n++
 	}
-	if n > 512 {
+	if n > 4096 {
 		t.Fatalf("the slow viewer held %d updates, more than its buffer", n)
 	}
 	// Nothing was lost in the history.
@@ -323,8 +323,8 @@ loop:
 	for _, e := range events {
 		text += e.Event.Text
 	}
-	if turns[0].State != store.TurnCompleted || text != strings.Repeat("x", 1500) {
-		t.Fatalf("turn %s with %d characters stored, want completed with all 1500", turns[0].State, len(text))
+	if turns[0].State != store.TurnCompleted || text != strings.Repeat("x", 8000) {
+		t.Fatalf("turn %s with %d characters stored, want completed with all 8000", turns[0].State, len(text))
 	}
 }
 

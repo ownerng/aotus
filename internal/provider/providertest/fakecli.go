@@ -56,7 +56,7 @@ const (
 	Interruptible Scenario = "interruptible"
 	// Replay prints the file named by EnvFakeReplay (a recorded stream).
 	Replay Scenario = "replay"
-	// Chatty sends 1500 text events, one character each, and completes.
+	// Chatty sends 8000 text events, one character each, and completes.
 	Chatty Scenario = "chatty"
 	// Stamped sends 100 text events 10 ms apart; each one carries the time it
 	// was written (Unix nanoseconds), so a test can measure how long it took to
@@ -241,7 +241,7 @@ func runFakeCLI(args []string) {
 		out.done()
 	case Chatty:
 		out.session(session)
-		for i := 0; i < 1500; i++ {
+		for i := 0; i < 8000; i++ {
 			out.text("x")
 		}
 		out.done()
