@@ -395,13 +395,14 @@
     "depends_on": [
       "P1-002",
       "P1-004",
-      "P1-009"
+      "P1-009",
+      "P1-022"
     ],
     "requirements": [
       "F3",
       "F6"
     ],
-    "description": "Keep one supervised session per active employee alive in the background, independent of any client. Run turns, fan normalized events out to subscribers, persist the history, cancel immediately, and run many employees in parallel without one blocking another. Apply a restart policy with back-off for crashed sessions and resume sessions after a daemon restart through the CLI's own resume feature where it exists.",
+    "description": "Keep one supervised session per active employee alive in the background, independent of any client. Run turns, fan normalized events out to subscribers, persist the history, cancel immediately, and run many employees in parallel without one blocking another. Apply a restart policy with back-off for crashed sessions and resume sessions after a daemon restart through the CLI's own resume feature where it exists. Terminal-mode sessions are supervised the same way: they keep running without viewers, keep their replay buffer, and are restarted or marked as needing resume like structured ones.",
     "acceptance": [
       "A session keeps running when every subscriber disconnects",
       "Events arrive in order and are persisted to history",
@@ -409,7 +410,8 @@
       "A slow or stuck subscriber does not block other employees or the producer",
       "A configurable concurrency limit queues extra turns instead of failing",
       "A crashing CLI is restarted with back-off and gives up with a clear error",
-      "After a daemon restart, sessions are resumed or marked as needing resume"
+      "After a daemon restart, sessions are resumed or marked as needing resume",
+      "Terminal-mode sessions also survive having no viewer and expose replay to the next one"
     ],
     "checks": [
       {
@@ -424,7 +426,8 @@
           "TestParallelEmployeesDoNotBlockEachOther",
           "TestConcurrencyLimitQueues",
           "TestRestartPolicyBacksOff",
-          "TestSessionResumesAfterDaemonRestart"
+          "TestSessionResumesAfterDaemonRestart",
+          "TestTerminalSessionSurvivesWithoutViewers"
         ]
       }
     ],
@@ -576,13 +579,14 @@
       "F3",
       "S1"
     ],
-    "description": "Expose profiles, employees, sessions, turns, approvals and memory over HTTP and WebSocket on loopback. Every request needs the local token, WebSocket origins are validated, CORS is closed. Document the API in docs/API.md; it is the only contract with clients.",
+    "description": "Expose profiles, employees, sessions, turns, approvals and memory over HTTP and WebSocket on loopback. Every request needs the local token, WebSocket origins are validated, CORS is closed. Document the API in docs/API.md; it is the only contract with clients. Terminal-mode sessions stream their bytes over a binary WebSocket with replay on attach, accept input and resize.",
     "acceptance": [
       "Requests without a valid token are rejected",
       "A WebSocket upgrade from a foreign origin is rejected, so a web page cannot talk to the local daemon",
       "A turn streams over WebSocket and can be cancelled from the client",
       "Approval requests and answers work over the API",
-      "docs/API.md lists every endpoint and event"
+      "docs/API.md lists every endpoint and event",
+      "A terminal session can be attached, resized and written to over the API, receiving replay first"
     ],
     "checks": [
       {
@@ -593,7 +597,8 @@
           "TestRejectsForeignWebSocketOrigin",
           "TestNoPermissiveCORS",
           "TestTurnStreamsOverWebSocketAndCancels",
-          "TestApprovalFlowOverAPI"
+          "TestApprovalFlowOverAPI",
+          "TestTerminalStreamsOverWebSocket"
         ]
       },
       {
@@ -712,7 +717,8 @@
     "title": "Desktop app: window, tray, employees, chat and approvals",
     "status": "todo",
     "depends_on": [
-      "P1-016"
+      "P1-016",
+      "P1-022"
     ],
     "requirements": [
       "F2",
@@ -720,13 +726,14 @@
       "F4",
       "F16"
     ],
-    "description": "Build cmd/aotus-desktop (build tag desktop) with the stack decided in ADR 0010. On start it finds a running daemon through the discovery file or starts aotusd; closing the window leaves the daemon and its agents running and a tray entry reopens it. Screens: profiles (link a subscription, see login status and limits), employee list, create employee, chat with streaming and cancel, approvals, history. Keep memory low: virtualized message list, history loaded on demand, incremental streaming.",
+    "description": "Build cmd/aotus-desktop (build tag desktop) with the stack decided in ADR 0010. On start it finds a running daemon through the discovery file or starts aotusd; closing the window leaves the daemon and its agents running and a tray entry reopens it. Screens: profiles (link a subscription, see login status and limits), employee list, create employee, chat with streaming and cancel, approvals, history. Keep memory low: virtualized message list, history loaded on demand, incremental streaming. Employees in terminal mode show the official UI in an embedded terminal view (xterm.js); the profile screen runs the in-profile login flow.",
     "acceptance": [
       "The app reuses a running daemon or starts one, and never embeds it",
       "Closing the window keeps the daemon and its sessions running; the tray entry reopens the window",
       "A user can link a profile, create an employee, chat with streaming, cancel and answer approvals",
       "Long histories are virtualized and loaded on demand; memory with 1000 messages is measured and recorded in docs/BENCHMARKS.md",
-      "The app builds with go build -tags desktop on Windows, macOS and Linux"
+      "The app builds with go build -tags desktop on Windows, macOS and Linux",
+      "A terminal-mode employee shows the official interface in the app, and a profile can be logged in from the app"
     ],
     "checks": [
       {
@@ -775,7 +782,8 @@
     "title": "Packaging and CI on every operating system",
     "status": "todo",
     "depends_on": [
-      "P1-017"
+      "P1-017",
+      "P1-021"
     ],
     "requirements": [
       "N8"
@@ -877,6 +885,155 @@
     ],
     "docs": [
       "docs/PRD.md"
+    ]
+  },
+  {
+    "id": "P1-020",
+    "phase": 1,
+    "title": "proc: pseudo-terminal hosting on Linux and macOS",
+    "status": "todo",
+    "depends_on": [
+      "P1-002"
+    ],
+    "requirements": [
+      "F6",
+      "F16"
+    ],
+    "description": "Extend internal/proc so an interactive program (the official Claude Code or Codex UI) can run inside a pseudo-terminal that outlives any viewer: start with an initial size, keep a bounded replay buffer of recent output so a window opened later can redraw, fan the live output out to subscribers without ever blocking the program, accept input and resize, and kill the whole process tree on cancel. Uses a PTY library on Unix (an ADR is required: github.com/creack/pty is the candidate); Windows is task P1-021.",
+    "acceptance": [
+      "A program started in a PTY sees a terminal (isatty) of the requested size, and a resize reaches it",
+      "Input written by the daemon reaches the program; its output reaches every subscriber",
+      "A subscriber that joins late receives the replay of recent output before live output",
+      "A slow or absent subscriber never blocks the program",
+      "Cancel kills the program and everything it started",
+      "The PTY library choice is recorded in ADR 0011"
+    ],
+    "checks": [
+      {
+        "name": "pty tests",
+        "pkg": "./internal/proc",
+        "tests": [
+          "TestPTYRunsProgramOnATerminalOfTheRequestedSize",
+          "TestPTYResizeReachesProgram",
+          "TestPTYInputReachesProgram",
+          "TestPTYReplayThenLiveOutput",
+          "TestPTYSlowSubscriberDoesNotBlock",
+          "TestPTYKeepsRunningWithoutViewers",
+          "TestPTYCancelKillsWholeProcessTree"
+        ]
+      },
+      {
+        "name": "pty ADR",
+        "file": "docs/DECISIONS/0011-pty-library.md",
+        "contains": [
+          "Status: accepted"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/proc/",
+      "docs/DECISIONS/0011-pty-library.md",
+      "go.mod"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
+    ]
+  },
+  {
+    "id": "P1-021",
+    "phase": 1,
+    "title": "proc: pseudo-terminal on Windows (ConPTY), verified on Windows",
+    "status": "todo",
+    "depends_on": [
+      "P1-020"
+    ],
+    "requirements": [
+      "F6",
+      "F16",
+      "N8"
+    ],
+    "description": "Implement the same PTY API of P1-020 on Windows with ConPTY, assigning the program to the Job Object so cancel kills its whole tree. This could not be run where the project is developed (Linux), so the task is finished only with evidence from a real Windows 10/11 machine or the Windows CI runner: run go test ./internal/proc -run TestPTY -v there and paste the result and the OS version into docs/research/windows-verification.md. The same document records any other Windows-only check found by earlier tasks (Job Object tree kill in internal/proc, autostart in internal/lifecycle).",
+    "acceptance": [
+      "The PTY tests of P1-020 pass on Windows with ConPTY",
+      "Cancel kills the whole tree on Windows (Job Object), including the existing proc tests",
+      "docs/research/windows-verification.md holds the command output and the Windows version it ran on"
+    ],
+    "checks": [
+      {
+        "name": "windows evidence",
+        "file": "docs/research/windows-verification.md",
+        "contains": [
+          "ConPTY",
+          "Windows 1",
+          "go test ./internal/proc",
+          "PASS"
+        ]
+      },
+      {
+        "name": "windows build",
+        "cmd": [
+          "go",
+          "vet",
+          "./internal/proc"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/proc/",
+      "docs/research/windows-verification.md"
+    ],
+    "docs": [
+      "docs/ARCHITECTURE.md"
+    ]
+  },
+  {
+    "id": "P1-022",
+    "phase": 1,
+    "title": "Terminal-mode sessions and in-profile login for Claude Code and Codex",
+    "status": "todo",
+    "depends_on": [
+      "P1-006",
+      "P1-007",
+      "P1-020"
+    ],
+    "requirements": [
+      "F1",
+      "F6",
+      "F16",
+      "S2"
+    ],
+    "description": "Add ModeTerminal to the Claude Code and Codex adapters on top of the PTY of internal/proc: the official interactive UI runs unmodified in a pseudo-terminal that the daemon keeps alive (resuming the provider session with the CLI's own flag when one is known), exposed through a TerminalSession (subscribe with replay, write, resize, interrupt, cancel). Also provide the login flow: run the CLI's own login command (claude auth login, codex login) in a terminal session with the profile's environment so the user signs in inside Aotus without Aotus ever seeing credentials. Claude Code's default mode is terminal (docs/research/provider-terms.md, Decision).",
+    "acceptance": [
+      "Detect lists terminal mode, and a profile with no explicit mode uses terminal for Claude Code",
+      "A terminal session runs the unmodified binary with the profile environment and keeps running with no viewer attached",
+      "A viewer that joins later gets the replay, then live output; resize and input work",
+      "The login flow runs the CLI's own login command inside the profile and the profile's login status changes afterwards; the daemon never reads credentials",
+      "Interrupt types Ctrl+C into the terminal; cancel kills the tree"
+    ],
+    "checks": [
+      {
+        "name": "terminal session tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestTerminalSessionHostsTheOfficialUI",
+          "TestTerminalSessionKeepsRunningWithoutViewer",
+          "TestTerminalSessionReplayThenLive",
+          "TestTerminalSessionResizeAndInput",
+          "TestTerminalSessionInterruptAndCancel",
+          "TestClaudeDefaultsToTerminalMode",
+          "TestLoginFlowRunsInsideTheProfile",
+          "TestTerminalModeNeverReadsCredentialFiles"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/"
+    ],
+    "docs": [
+      "docs/research/cli-contracts.md",
+      "docs/research/provider-terms.md",
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
     ]
   }
 ]
