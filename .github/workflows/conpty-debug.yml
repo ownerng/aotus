@@ -39,8 +39,21 @@ jobs:
           		code, err := cpty.Wait(ctx)
           		fmt.Printf("wait: code=%d err=%v\n", code, err)
           	}()
-          	b, err := io.ReadAll(cpty)
-          	fmt.Printf("read %d bytes err=%v: %q\n", len(b), err, b)
+          	var buf []byte
+          	go func() {
+          		tmp := make([]byte, 4096)
+          		for {
+          			n, err := cpty.Read(tmp)
+          			buf = append(buf, tmp[:n]...)
+          			if err != nil {
+          				fmt.Println("read err:", err)
+          				return
+          			}
+          		}
+          	}()
+          	time.Sleep(3 * time.Second)
+          	fmt.Printf("got %d bytes: %q\n", len(buf), buf)
+          	_ = io.EOF
           }
           GO
           go mod init ref && go get github.com/UserExistsError/conpty@latest && go run .
