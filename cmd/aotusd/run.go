@@ -2,21 +2,25 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
+	"aotus/internal/api"
+	"aotus/internal/credstore"
 	"aotus/internal/datadir"
 	"aotus/internal/lifecycle"
 	"aotus/internal/netaccess"
+	"aotus/internal/orchestrator"
+	"aotus/internal/permissions"
+	"aotus/internal/provider"
 	"aotus/internal/store"
 	"aotus/internal/version"
+	"aotus/internal/workspace"
 )
 
 // shutdownGrace is how long in-flight requests get to finish on shutdown.
@@ -73,7 +77,25 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	srv := &http.Server{Handler: handler(token), ReadHeaderTimeout: 10 * time.Second}
+	// API keys live in the operating system's credential store only.
+	creds := credstore.Store{}
+	mgr := orchestrator.NewManager(orchestrator.New(st, workspace.New(layout)), map[provider.Kind]provider.Provider{
+		provider.KindClaude: provider.Claude{},
+		provider.KindCodex:  provider.Codex{},
+		provider.KindOpenAI: provider.OpenAICompat{Keys: creds.Get},
+	}, orchestrator.Options{Keys: creds})
+	rec, err := mgr.Start(ctx)
+	if err != nil {
+		fmt.Fprintln(stderr, "aotusd:", err)
+		return 1
+	}
+	if rec.Interrupted > 0 || len(rec.Resumed) > 0 || len(rec.Failed) > 0 {
+		fmt.Fprintf(stdout, "aotusd: recovered: %d turn(s) interrupted by the last stop, %d terminal session(s) resumed, %d could not be resumed\n",
+			rec.Interrupted, len(rec.Resumed), len(rec.Failed))
+	}
+	handler := api.New(api.Config{Manager: mgr, Broker: permissions.New(st), Token: token, Version: version.Version})
+
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 
@@ -98,6 +120,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	shutCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 	defer cancel()
+	// Stop the employees' work first (terminal sessions are remembered so that
+	// they come back on the next start), then the server.
+	if err := mgr.Shutdown(shutCtx); err != nil {
+		fmt.Fprintln(stderr, "aotusd: stopping the employees:", err)
+	}
 	if err := srv.Shutdown(shutCtx); err != nil {
 		fmt.Fprintln(stderr, "aotusd: shutdown:", err)
 	}
@@ -110,22 +137,6 @@ func resolveLayout(dir string) (datadir.Layout, error) {
 		return datadir.Layout{Root: dir}, nil
 	}
 	return datadir.Default()
-}
-
-// handler is a placeholder until internal/api (task P1-014): it only answers
-// the health check, and only to a caller with the token.
-func handler(token string) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		got, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !netaccess.TokenValid(got, token) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "version": version.Version})
-	})
-	return mux
 }
 
 func manageAutostart(action string, stdout, stderr io.Writer) int {

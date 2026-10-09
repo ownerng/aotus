@@ -77,7 +77,7 @@ func TestDaemonLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	token := strings.TrimSpace(string(tokenBytes))
-	url := "http://" + info.Address + "/healthz"
+	url := "http://" + info.Address + "/api/v1/status"
 
 	if code, _ := get(t, url, ""); code != http.StatusUnauthorized {
 		t.Errorf("without a token: %d, want 401", code)
@@ -85,7 +85,7 @@ func TestDaemonLifecycle(t *testing.T) {
 	if code, _ := get(t, url, "wrong"); code != http.StatusUnauthorized {
 		t.Errorf("with a wrong token: %d, want 401", code)
 	}
-	if code, body := get(t, url, token); code != http.StatusOK || !strings.Contains(body, `"status":"ok"`) {
+	if code, body := get(t, url, token); code != http.StatusOK || !strings.Contains(body, `"status":"ok"`) || !strings.Contains(body, `"employees":0`) {
 		t.Errorf("with the token: %d %s", code, body)
 	}
 

@@ -48,6 +48,9 @@ type Options struct {
 	// before it is disconnected (default 256).
 	SubscriberBuffer int
 	Restart          RestartPolicy
+	// Keys stores API keys (the OS credential store in the daemon); nil means
+	// API keys cannot be stored.
+	Keys KeyStore
 	// TerminalRows and TerminalCols are the size used when the terminal is
 	// started without a viewer, for example after a daemon restart.
 	TerminalRows, TerminalCols uint16
@@ -91,6 +94,7 @@ type Manager struct {
 
 	mu     sync.Mutex
 	rts    map[string]*runtime
+	logins map[string]provider.TerminalSession // running login flows, by profile
 	closed bool
 	wg     sync.WaitGroup
 }
@@ -102,7 +106,7 @@ func NewManager(svc *Service, providers map[provider.Kind]provider.Provider, opt
 	return &Manager{
 		svc: svc, st: svc.st, ws: svc.ws, providers: providers, opts: opts,
 		hub: newHub(opts.SubscriberBuffer), sem: newFifoSem(opts.MaxConcurrentTurns),
-		rts: map[string]*runtime{},
+		rts: map[string]*runtime{}, logins: map[string]provider.TerminalSession{},
 	}
 }
 

@@ -30,6 +30,7 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+          - bodyclose # test helpers close bodies themselves, which the linter cannot see through them
       # Test support code: it re-executes the test binary and writes temp files.
       - path: internal/provider/providertest/
         linters:

@@ -576,7 +576,7 @@
     "id": "P1-014",
     "phase": 1,
     "title": "API: HTTP and WebSocket with authentication",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-010",
       "P1-011",
@@ -620,7 +620,8 @@
     "docs": [
       "docs/ARCHITECTURE.md",
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-015",

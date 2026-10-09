@@ -264,7 +264,12 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	for _, rt := range m.rts {
 		rts = append(rts, rt)
 	}
+	logins := m.logins
+	m.logins = map[string]provider.TerminalSession{}
 	m.mu.Unlock()
+	for _, l := range logins {
+		_ = l.Close()
+	}
 
 	for _, rt := range rts {
 		rt.mu.Lock()
