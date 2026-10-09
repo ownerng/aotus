@@ -24,6 +24,12 @@ type Contract struct {
 	// New returns a fresh session whose CLI behaves as the scenario says. A
 	// real adapter implements it with a fake CLI that speaks its dialect.
 	New func(t *testing.T, sc Scenario) (provider.Session, Probe)
+	// Process is true for providers that run a CLI process. Checks about
+	// process trees, stdin and the child environment only apply to them.
+	Process bool
+	// ResumeWant is the answer expected on the second turn of a session; the
+	// default is "resumed:<session ID>", for providers whose CLI gets the ID.
+	ResumeWant func(sessionID string) string
 }
 
 const wait = 10 * time.Second
@@ -33,10 +39,14 @@ const wait = 10 * time.Second
 func RunContract(t *testing.T, c Contract) {
 	t.Run("events are normalized", func(t *testing.T) { CheckNormalized(t, c) })
 	t.Run("resume continues the session", func(t *testing.T) { CheckResume(t, c) })
-	t.Run("cancel stops the process tree", func(t *testing.T) { CheckCancelStopsTree(t, c) })
+	if c.Process {
+		t.Run("cancel stops the process tree", func(t *testing.T) { CheckCancelStopsTree(t, c) })
+		t.Run("environment never leaks", func(t *testing.T) { CheckNoEnvLeak(t, c) })
+		t.Run("stdin is closed", func(t *testing.T) { CheckStdinClosed(t, c) })
+	} else {
+		t.Run("cancel ends the turn", func(t *testing.T) { CheckCancelEndsTurn(t, c) })
+	}
 	t.Run("interrupt ends the turn as canceled", func(t *testing.T) { CheckInterrupt(t, c) })
-	t.Run("environment never leaks", func(t *testing.T) { CheckNoEnvLeak(t, c) })
-	t.Run("stdin is closed", func(t *testing.T) { CheckStdinClosed(t, c) })
 	t.Run("one turn at a time", func(t *testing.T) { CheckOneTurnAtATime(t, c) })
 	t.Run("close ends the session", func(t *testing.T) { CheckCloseEndsSession(t, c) })
 }
@@ -135,8 +145,12 @@ func CheckResume(t *testing.T, c Contract) {
 	if err := provider.ValidateTurn(second); err != nil {
 		t.Fatal(err)
 	}
-	if got := text(second); got != "resumed:"+id {
-		t.Fatalf("second turn answered %q, want resumed:%s: the session ID must be passed to the CLI", got, id)
+	want := "resumed:" + id
+	if c.ResumeWant != nil {
+		want = c.ResumeWant(id)
+	}
+	if got := text(second); got != want {
+		t.Fatalf("second turn answered %q, want %q: the conversation must continue", got, want)
 	}
 }
 
@@ -163,6 +177,27 @@ func CheckCancelStopsTree(t *testing.T, c Contract) {
 		t.Fatalf("done = %+v, want canceled", last.Done)
 	}
 	waitDead(t, leader, grandchild)
+}
+
+// CheckCancelEndsTurn is the cancel check for providers without a process:
+// CancelTurn ends the turn as canceled and the session stays usable.
+func CheckCancelEndsTurn(t *testing.T, c Contract) {
+	t.Helper()
+	s, _ := newSession(t, c, Sleep)
+	if err := s.Send(context.Background(), "go"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if err := s.CancelTurn(); err != nil {
+		t.Fatal(err)
+	}
+	events := collectTurn(t, s)
+	if err := provider.ValidateTurn(events); err != nil {
+		t.Fatalf("canceled turn violates the contract: %v\n%v", err, events)
+	}
+	if last := events[len(events)-1]; last.Done.Reason != provider.DoneCanceled {
+		t.Fatalf("done = %+v, want canceled", last.Done)
+	}
 }
 
 // CheckInterrupt: a polite interrupt ends the turn as canceled and the error
@@ -254,11 +289,18 @@ func CheckOneTurnAtATime(t *testing.T, c Contract) {
 // and refuses further turns.
 func CheckCloseEndsSession(t *testing.T, c Contract) {
 	t.Helper()
-	s, probe := newSession(t, c, Tree)
+	sc := Sleep
+	if c.Process {
+		sc = Tree
+	}
+	s, probe := newSession(t, c, sc)
 	if err := s.Send(context.Background(), "go"); err != nil {
 		t.Fatal(err)
 	}
-	leader, grandchild := readPids(t, probe.PidFile)
+	var leader, grandchild int
+	if c.Process {
+		leader, grandchild = readPids(t, probe.PidFile)
+	}
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +311,9 @@ func CheckCloseEndsSession(t *testing.T, c Contract) {
 	}
 	for range s.Events() { // must terminate: the stream is closed
 	}
-	waitDead(t, leader, grandchild)
+	if c.Process {
+		waitDead(t, leader, grandchild)
+	}
 	if err := s.Send(context.Background(), "again"); !errors.Is(err, provider.ErrSessionClosed) {
 		t.Fatalf("Send after Close = %v, want ErrSessionClosed", err)
 	}

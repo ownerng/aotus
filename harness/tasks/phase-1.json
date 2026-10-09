@@ -270,7 +270,7 @@
     "id": "P1-007",
     "phase": 1,
     "title": "Codex CLI adapter and OpenAI-compatible API adapter",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-001",
       "P1-004",
@@ -308,7 +308,8 @@
     "docs": [
       "docs/research/cli-contracts.md",
       "docs/research/provider-terms.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-008",

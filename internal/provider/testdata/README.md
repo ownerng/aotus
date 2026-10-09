@@ -9,6 +9,8 @@ Real output captured on 2026-10-09 from the official CLIs by task P1-001, then s
 | `claude-logged-out.jsonl` | same command with a brand-new, logged-out `CLAUDE_CONFIG_DIR` (assistant line carries `error: authentication_failed`) | the needs_login path |
 | `claude-auth-status-logged-in.json`, `claude-auth-status-logged-out.json` | `claude auth status` | login detection |
 | `codex-failed-model.jsonl` | `codex exec --json` (codex-cli 0.160.0) on an account whose token had expired and whose default model was rejected | error events and the failed-turn path |
-| `codex-login-status-*.txt` | `codex login status` | login detection |
+| `codex-login-status-*.txt` | `codex login status` (the real CLI prints this on **stderr** and exits 1 when logged out) | login detection |
+
+| `codex-success-synthetic.jsonl` | **hand-written, not a recording**, following Codex's public documentation | the success-path parser until a real recording replaces it |
 
 Missing on purpose: a successful `codex exec --json` turn. The recording account could not complete a turn (expired token). Record it after `codex login` and add it here; the Codex adapter tests that need it are written against the documented item types until then.

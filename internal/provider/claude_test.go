@@ -39,6 +39,7 @@ func startClaude(t *testing.T, p provider.Profile) provider.Session {
 
 func claudeContract() providertest.Contract {
 	return providertest.Contract{
+		Process: true,
 		New: func(t *testing.T, sc providertest.Scenario) (provider.Session, providertest.Probe) {
 			t.Helper()
 			p := claudeProfile(t, layout(t), sc)

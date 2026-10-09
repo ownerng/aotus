@@ -11,7 +11,7 @@ Terms-of-use status of these routes is in `docs/research/provider-terms.md`; int
 | | Claude Code | Codex CLI |
 | --- | --- | --- |
 | Detect and version | `claude --version` prints `2.1.295 (Claude Code)` [verified] | `codex --version` prints `codex-cli 0.160.0` [verified] |
-| Login status command | `claude auth status` prints JSON; exit code is 0 even when logged out [verified] | `codex login status` prints `Logged in using ChatGPT` or `Not logged in` [verified] |
+| Login status command | `claude auth status` prints JSON on stdout; exit code is 0 even when logged out [verified] | `codex login status` prints `Logged in using ChatGPT` or `Not logged in` on stderr; exit 1 when logged out [verified] |
 | Isolate configuration | `CLAUDE_CONFIG_DIR=<dir>` [verified] | `CODEX_HOME=<dir>` [verified] |
 | Structured (headless) mode | `claude -p ... --output-format stream-json --verbose` [verified] | `codex exec --json ...` [verified for the failure path only] |
 | Resume a session | `--resume <session_id>` keeps the same session id [verified] | `codex exec resume <id>` or `--last` [unverified] |
@@ -75,7 +75,7 @@ Started under a pseudo-terminal (40 rows by 120 columns, `TERM=xterm-256color`),
 ### 3.1 Detection and login status
 
 - `codex --version` prints `codex-cli 0.160.0`.
-- `codex login status` prints a line of text: `Logged in using ChatGPT` or `Not logged in`. When `CODEX_HOME` points under a temporary directory it also prints a warning about "helper binaries" first, so parse the **last** line.
+- `codex login status` prints a line of text: `Logged in using ChatGPT` or `Not logged in`. **It writes it to stderr, not stdout** (stdout is empty), and exits 0 when logged in and 1 when logged out (verified 2026-10-09 while testing the adapter against the real CLI). When `CODEX_HOME` points under a temporary directory it also prints a warning about "helper binaries" first, so read both streams and take the last line that is a status.
 - **The login status can be wrong.** On the recording machine it said `Logged in using ChatGPT` while every request failed with `401 ... Your authentication token has expired. Please try refreshing it.` (printed on stderr by `codex_models_manager`). The adapter must treat that error as "needs login" and not trust `login status` alone. `codex doctor` has an `auth` section (it reports the storage mode `File` and whether tokens are stored; it does not validate them). [verified]
 
 ### 3.2 Isolating the config directory

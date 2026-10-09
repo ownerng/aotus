@@ -19,6 +19,7 @@ func TestMain(m *testing.M) {
 // fakeContract runs the shared checks against the fake provider.
 func fakeContract() providertest.Contract {
 	return providertest.Contract{
+		Process: true,
 		New: func(t *testing.T, sc providertest.Scenario) (provider.Session, providertest.Probe) {
 			t.Helper()
 			pidFile := filepath.Join(t.TempDir(), "pids")

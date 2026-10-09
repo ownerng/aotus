@@ -37,6 +37,9 @@ type Profile struct {
 	// ExtraEnv is non-secret static configuration for the CLI, for example a
 	// proxy. Names that look like credentials are rejected.
 	ExtraEnv map[string]string
+	// BaseURL is the endpoint of an OpenAI-compatible API (api mode); empty
+	// means the default.
+	BaseURL string
 	// APIKeyRef names the entry in the operating system credential store that
 	// holds the API key (api mode). It is never the key itself.
 	APIKeyRef string

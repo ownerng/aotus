@@ -16,6 +16,11 @@
       "may_import": []
     },
     {
+      "package": "internal/credstore",
+      "why": "API keys live in the OS credential store; only the composition root uses it",
+      "may_import": []
+    },
+    {
       "package": "internal/proc",
       "why": "process supervision primitives; the only product package that spawns processes",
       "may_import": [

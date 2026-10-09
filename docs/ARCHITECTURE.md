@@ -41,6 +41,7 @@ An arrow means "may import". Anything not listed is forbidden. `harness/architec
 | --- | --- | --- |
 | `internal/version` | build version | - |
 | `internal/datadir` | paths and permissions of the data directory | - |
+| `internal/credstore` | API keys in the OS credential store (go-keyring); used only by the composition root | - |
 | `internal/proc` | start/stop child processes, process-tree kill, line streaming, ring buffer, PTY (if adopted) | version |
 | `internal/store` | SQLite (WAL, pure-Go driver), migrations, memory | datadir, version |
 | `internal/workspace` | per-employee folder, path-escape protection, scrubbed environment, trash | datadir, version |

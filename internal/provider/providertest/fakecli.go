@@ -108,10 +108,12 @@ func fakeInfo(args []string) bool {
 		case args[0] == "auth":
 			fmt.Println(`{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`)
 		case loggedIn:
+			// Like the real Codex CLI: the status goes to stderr, after a warning.
 			fmt.Fprintln(os.Stderr, "WARNING: proceeding, even though we could not create PATH aliases")
-			fmt.Println("Logged in using ChatGPT")
+			fmt.Fprintln(os.Stderr, "Logged in using ChatGPT")
 		default:
-			fmt.Println("Not logged in")
+			fmt.Fprintln(os.Stderr, "Not logged in")
+			os.Exit(1) // the real one exits 1 when logged out
 		}
 		return true
 	}
@@ -140,7 +142,8 @@ func runFakeCLI(args []string) {
 		stdinText []byte
 	)
 	w := bufio.NewWriter(os.Stdout)
-	if len(args) > 0 && args[0] == "-p" { // imitating Claude Code
+	switch {
+	case len(args) > 0 && args[0] == "-p": // imitating Claude Code
 		out = claudeOutput{w: w}
 		scenario = Scenario(os.Getenv(EnvFakeScenario))
 		pidfile = os.Getenv(EnvFakePidFile)
@@ -152,7 +155,15 @@ func runFakeCLI(args []string) {
 		// The real CLI reads the prompt from stdin: a runner that did not
 		// close stdin would hang here, as it would with the real thing.
 		stdinText, _ = io.ReadAll(os.Stdin)
-	} else {
+	case len(args) > 0 && args[0] == "exec": // imitating Codex CLI
+		out = codexOutput{w: w}
+		scenario = Scenario(os.Getenv(EnvFakeScenario))
+		pidfile = os.Getenv(EnvFakePidFile)
+		if len(args) > 2 && args[1] == "resume" {
+			resume = args[len(args)-2] // `exec resume ... <id> -`
+		}
+		stdinText, _ = io.ReadAll(os.Stdin)
+	default:
 		out = plainOutput{w: w}
 		opts := map[string]string{}
 		for i := 0; i+1 < len(args); i += 2 {
@@ -266,6 +277,32 @@ func (o plainOutput) done() {
 func (o plainOutput) interrupted() {
 	write(o.w, line{"type": "error", "code": "cli_error", "message": "interrupted"})
 	write(o.w, line{"type": "done", "reason": "failed"})
+}
+
+// codexOutput imitates `codex exec --json`.
+type codexOutput struct{ w *bufio.Writer }
+
+func (o codexOutput) session(id string) {
+	write(o.w, line{"type": "thread.started", "thread_id": id})
+	write(o.w, line{"type": "turn.started"})
+}
+
+func (o codexOutput) text(s string) {
+	write(o.w, line{"type": "item.completed", "item": line{"id": "item_" + strconv.Itoa(len(s)), "type": "agent_message", "text": s}})
+}
+
+func (o codexOutput) failure(_, msg string) {
+	inner, _ := json.Marshal(line{"type": "error", "status": 401, "error": line{"message": "Your authentication token has expired. Please try refreshing it. (" + msg + ")"}})
+	write(o.w, line{"type": "error", "message": string(inner)})
+	write(o.w, line{"type": "turn.failed", "error": line{"message": string(inner)}})
+}
+
+func (o codexOutput) done() {
+	write(o.w, line{"type": "turn.completed", "usage": line{"input_tokens": 3, "output_tokens": 2}})
+}
+
+func (o codexOutput) interrupted() {
+	write(o.w, line{"type": "turn.failed", "error": line{"message": "interrupted"}})
 }
 
 // claudeOutput imitates the stream-json output of Claude Code.

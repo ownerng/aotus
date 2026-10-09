@@ -3,26 +3,12 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
 	"aotus/internal/proc"
-)
-
-// Errors a caller can tell apart before starting a session.
-var (
-	// ErrCLINotInstalled means the profile's binary does not exist.
-	ErrCLINotInstalled = errors.New("the CLI is not installed")
-	// ErrNeedsLogin means the profile's CLI is not logged in.
-	ErrNeedsLogin = errors.New("the CLI is not logged in")
-	// ErrUnsupportedVersion means the CLI is older than the oldest tested one.
-	ErrUnsupportedVersion = errors.New("the CLI version is older than the oldest tested one")
-	// ErrNoticeRequired means the user has not accepted a notice that guards
-	// this mode (see Profile.AcceptedNotices).
-	ErrNoticeRequired = errors.New("the user must accept a notice before this mode can be used")
 )
 
 // NoticeClaudeHeadless guards Claude Code's structured mode. Its text must be
@@ -51,58 +37,19 @@ func (c Claude) lookup() func(string) (string, bool) {
 	return OSEnv
 }
 
-// Detect implements Provider. A missing CLI is a state of the answer, not an
-// error.
+// Detect implements Provider.
 func (c Claude) Detect(ctx context.Context, p Profile) (Detection, error) {
-	d := Detection{Login: LoginUnknown}
-	out, err := runOnce(ctx, p.Binary, []string{"--version"}, ProfileEnv(p, c.lookup()))
-	if err != nil {
-		if errors.Is(err, proc.ErrBinaryNotFound) || errors.Is(err, proc.ErrNotExecutable) {
-			d.Detail = fmt.Sprintf("Claude Code was not found at %q. Install the official CLI or choose its location.", p.Binary)
-			return d, nil
-		}
-		return d, err
-	}
-	d.Installed = true
-	if v, ok := ParseVersion(out); ok {
-		d.Version = v
-		d.VersionOK = CompareVersions(v, MinVersion[KindClaude]) >= 0
-	}
-	if !d.VersionOK {
-		d.Detail = fmt.Sprintf("Claude Code %s is older than %s, the oldest version Aotus was tested with.", orUnknown(d.Version), MinVersion[KindClaude])
-	}
-	d.Modes = []Mode{ModeStructured}
-
-	login, err := CheckLogin(ctx, p, c.lookup())
-	if err != nil {
-		if d.Detail == "" {
-			d.Detail = "Could not read the login status: " + err.Error()
-		}
-		return d, nil
-	}
-	d.Login = login.State
-	if login.State == LoginLoggedOut && d.Detail == "" {
-		d.Detail = "This profile is not logged in. Log in with Claude Code using this profile."
-	}
-	return d, nil
+	return detectCLI(ctx, p, "Claude Code", []Mode{ModeStructured}, c.lookup())
 }
 
-// Preflight turns a detection into one of the typed errors above, or nil when
-// the CLI can be used.
+// Preflight returns one of the typed errors (ErrCLINotInstalled,
+// ErrUnsupportedVersion, ErrNeedsLogin) when the CLI cannot be used, or nil.
 func (c Claude) Preflight(ctx context.Context, p Profile) error {
 	d, err := c.Detect(ctx, p)
 	if err != nil {
 		return err
 	}
-	switch {
-	case !d.Installed:
-		return fmt.Errorf("%w: %s", ErrCLINotInstalled, d.Detail)
-	case !d.VersionOK:
-		return fmt.Errorf("%w: %s", ErrUnsupportedVersion, d.Detail)
-	case d.Login == LoginLoggedOut:
-		return fmt.Errorf("%w: %s", ErrNeedsLogin, d.Detail)
-	}
-	return nil
+	return d.Err()
 }
 
 // Start implements Provider.
@@ -122,13 +69,6 @@ func (c Claude) Start(_ context.Context, req SessionRequest) (Session, error) {
 		return nil, fmt.Errorf("%w: Claude Code supports %v for now, not %q", ErrUnsupportedMode, []Mode{ModeStructured}, mode)
 	}
 	return NewProcessSession(ModeStructured, claudeDialect{lookup: c.lookup()}, req), nil
-}
-
-func orUnknown(s string) string {
-	if s == "" {
-		return "(unknown)"
-	}
-	return s
 }
 
 // claudeDialect builds `claude -p` turns.
@@ -163,15 +103,6 @@ func (d claudeDialect) Turn(t TurnRequest) (Command, Parser, error) {
 		// process list.
 		Stdin: t.Prompt,
 	}, &claudeParser{}, nil
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 // claudeParser reads the stream-json output of one turn.
