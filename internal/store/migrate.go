@@ -25,6 +25,63 @@ var migrations = []Migration{
 			value TEXT NOT NULL
 		) STRICT;`,
 	},
+	{
+		Version: 2,
+		Name:    "profiles_employees_audit",
+		SQL: `
+		CREATE TABLE profiles (
+			id                TEXT PRIMARY KEY,
+			name              TEXT NOT NULL,
+			kind              TEXT NOT NULL,
+			binary            TEXT NOT NULL,
+			config_dir        TEXT NOT NULL UNIQUE,
+			mode              TEXT NOT NULL DEFAULT '',
+			model             TEXT NOT NULL DEFAULT '',
+			base_url          TEXT NOT NULL DEFAULT '',
+			api_key_ref       TEXT NOT NULL DEFAULT '',
+			terms_checked_at  TEXT NOT NULL DEFAULT '',
+			accepted_notices  TEXT NOT NULL DEFAULT '[]',
+			extra_env         TEXT NOT NULL DEFAULT '{}',
+			created_at        TEXT NOT NULL
+		) STRICT;
+
+		CREATE TABLE employees (
+			id               TEXT PRIMARY KEY,
+			slug             TEXT NOT NULL,
+			name             TEXT NOT NULL,
+			role             TEXT NOT NULL DEFAULT '',
+			system_prompt    TEXT NOT NULL DEFAULT '',
+			profile_id       TEXT NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
+			state            TEXT NOT NULL CHECK (state IN ('active', 'paused', 'deleted')),
+			permission_mode  TEXT NOT NULL DEFAULT '',
+			allowed_tools    TEXT NOT NULL DEFAULT '[]',
+			created_at       TEXT NOT NULL,
+			updated_at       TEXT NOT NULL,
+			deleted_at       TEXT NOT NULL DEFAULT ''
+		) STRICT;
+		-- A name (and its folder) can be reused after the employee was deleted.
+		CREATE UNIQUE INDEX employees_slug_alive ON employees (slug) WHERE state <> 'deleted';
+		CREATE INDEX employees_profile ON employees (profile_id);
+
+		-- The audit log has no foreign key on purpose: it must outlive the
+		-- employees and profiles it talks about. It is append-only, enforced by
+		-- the database itself.
+		CREATE TABLE audit_log (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			at           TEXT NOT NULL,
+			employee_id  TEXT NOT NULL DEFAULT '',
+			kind         TEXT NOT NULL,
+			action       TEXT NOT NULL,
+			detail       TEXT NOT NULL DEFAULT '',
+			decision     TEXT NOT NULL DEFAULT ''
+		) STRICT;
+		CREATE INDEX audit_log_employee ON audit_log (employee_id, id);
+		CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log
+			BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
+		CREATE TRIGGER audit_log_no_delete BEFORE DELETE ON audit_log
+			BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,
