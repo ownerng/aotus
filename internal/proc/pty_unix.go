@@ -11,6 +11,8 @@ import (
 	"github.com/creack/pty"
 )
 
+func ptySupported() bool { return true }
+
 type unixPTY struct {
 	ptmx *os.File
 	cmd  *exec.Cmd

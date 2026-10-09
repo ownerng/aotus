@@ -219,11 +219,8 @@ func TestClaudeReportsMissingLoggedOutAndOldCLI(t *testing.T) {
 	if _, err := c.Start(ctx, provider.SessionRequest{Profile: noNotice}); !errors.Is(err, provider.ErrNoticeRequired) || !strings.Contains(err.Error(), "ambiguous") {
 		t.Fatalf("structured mode without the accepted notice = %v, want ErrNoticeRequired carrying the notice", err)
 	}
-	if _, err := c.Start(ctx, provider.SessionRequest{Profile: ok, Mode: provider.ModeTerminal}); !errors.Is(err, provider.ErrUnsupportedMode) {
-		t.Fatalf("terminal mode is not available yet: %v", err)
-	}
-	if _, err := c.Start(ctx, provider.SessionRequest{Profile: provider.Profile{Kind: provider.KindClaude}}); !errors.Is(err, provider.ErrUnsupportedMode) {
-		t.Fatalf("a profile with no mode must be refused: %v", err)
+	if _, err := c.Start(ctx, provider.SessionRequest{Profile: ok, Mode: provider.ModeAPI}); !errors.Is(err, provider.ErrUnsupportedMode) {
+		t.Fatalf("a mode Claude Code does not have must be refused: %v", err)
 	}
 }
 

@@ -28,7 +28,11 @@ func (c Codex) lookup() func(string) (string, bool) {
 
 // Detect implements Provider.
 func (c Codex) Detect(ctx context.Context, p Profile) (Detection, error) {
-	return detectCLI(ctx, p, "Codex CLI", []Mode{ModeStructured}, c.lookup())
+	modes := []Mode{ModeStructured}
+	if proc.PTYSupported() {
+		modes = append(modes, ModeTerminal)
+	}
+	return detectCLI(ctx, p, "Codex CLI", modes, c.lookup())
 }
 
 // Preflight returns one of the typed errors when the CLI cannot be used.
@@ -40,17 +44,64 @@ func (c Codex) Preflight(ctx context.Context, p Profile) error {
 	return d.Err()
 }
 
-// Start implements Provider.
+// Start implements Provider. Codex CLI's default mode is structured.
 func (c Codex) Start(_ context.Context, req SessionRequest) (Session, error) {
-	mode := firstMode(req.Mode, req.Profile.Mode)
-	switch mode {
+	switch mode := firstMode(req.Mode, req.Profile.Mode, ModeStructured); mode {
 	case ModeStructured:
 		return NewProcessSession(ModeStructured, codexDialect{lookup: c.lookup()}, req), nil
-	case "":
-		return nil, fmt.Errorf("%w: choose a mode for the profile", ErrUnsupportedMode)
+	case ModeTerminal:
+		if !proc.PTYSupported() {
+			return nil, fmt.Errorf("%w: the terminal mode is not available on this platform yet", ErrUnsupportedMode)
+		}
+		// Codex does not let us choose a session ID: it resumes the most recent
+		// session of the working folder, which is the employee's own.
+		return newTerminalSession(req, codexLauncher{}, req.Profile.Binary, ProfileEnv(req.Profile, c.lookup()), false), nil
+	default:
+		return nil, fmt.Errorf("%w: Codex CLI supports %v, not %q", ErrUnsupportedMode, []Mode{ModeStructured, ModeTerminal}, mode)
 	}
-	return nil, fmt.Errorf("%w: Codex CLI supports %v for now, not %q", ErrUnsupportedMode, []Mode{ModeStructured}, mode)
 }
+
+// LoginSession returns a terminal session that runs Codex CLI's own login
+// (codex login) with the profile's environment. Aotus never sees the
+// credentials.
+func (c Codex) LoginSession(p Profile) (TerminalSession, error) {
+	if !proc.PTYSupported() {
+		return nil, fmt.Errorf("%w: the terminal is not available on this platform yet", ErrUnsupportedMode)
+	}
+	return newTerminalSession(SessionRequest{Profile: p}, fixedLauncher{args: []string{"login"}}, p.Binary, ProfileEnv(p, c.lookup()), false), nil
+}
+
+// codexLauncher builds the command lines of the interactive Codex CLI.
+type codexLauncher struct{}
+
+func codexFlags(req SessionRequest) []string {
+	args := []string{"-s", firstNonEmpty(req.PermissionMode, codexSandbox)}
+	if m := firstNonEmpty(req.Model, req.Profile.Model); m != "" {
+		args = append(args, "-m", m)
+	}
+	return args
+}
+
+func (codexLauncher) New(req SessionRequest, _ string) []string { return codexFlags(req) }
+
+func (codexLauncher) Resume(req SessionRequest, id string) []string {
+	args := []string{"resume"}
+	if id == "" {
+		args = append(args, "--last")
+	} else {
+		args = append(args, id)
+	}
+	if m := firstNonEmpty(req.Model, req.Profile.Model); m != "" {
+		args = append(args, "-m", m)
+	}
+	return args
+}
+
+// fixedLauncher always runs the same arguments (the login commands).
+type fixedLauncher struct{ args []string }
+
+func (f fixedLauncher) New(SessionRequest, string) []string    { return f.args }
+func (f fixedLauncher) Resume(SessionRequest, string) []string { return f.args }
 
 func firstMode(modes ...Mode) Mode {
 	for _, m := range modes {

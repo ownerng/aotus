@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"errors"
-	"io"
 )
 
 // Kind identifies a provider implementation.
@@ -106,9 +105,31 @@ type Session interface {
 	Done() <-chan struct{}
 }
 
-// Terminal is the raw side of a ModeTerminal session: bytes to and from the
-// pseudo-terminal that hosts the official interactive UI.
+// Terminal is the raw side of a ModeTerminal session: the pseudo-terminal that
+// hosts the official interactive UI. It outlives any viewer.
 type Terminal interface {
-	io.ReadWriteCloser
-	Resize(rows, cols int) error
+	// Subscribe returns the recent output and a channel with everything that
+	// follows. The channel closes when the program ends or when the viewer
+	// falls too far behind (subscribe again to resume with a fresh replay).
+	Subscribe() (replay []byte, live <-chan []byte, cancel func())
+	// Write sends input, as if typed.
+	Write(p []byte) (int, error)
+	// Resize changes the size; the program is told through SIGWINCH.
+	Resize(rows, cols uint16) error
+}
+
+// TerminalSession is a Session in ModeTerminal. The program runs from Launch
+// until it ends or the session is cancelled or closed; it keeps running with
+// no viewer attached. Events carries the session ID once known and one final
+// EventDone when the program ends; the terminal output itself is not turned
+// into events, it is the terminal's.
+type TerminalSession interface {
+	Session
+	// Launch starts the official program in a pseudo-terminal of this size. If
+	// the session ran before it resumes the provider session. It returns
+	// ErrTurnActive while the program is already running. ctx only bounds the
+	// start: the program does not stop when ctx ends.
+	Launch(ctx context.Context, rows, cols uint16) error
+	// Terminal is the running terminal, or nil when the program is not running.
+	Terminal() Terminal
 }

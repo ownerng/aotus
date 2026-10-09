@@ -158,8 +158,8 @@ func TestCodexReportsMissingLoggedOutAndOldCLI(t *testing.T) {
 			t.Errorf("%s: Preflight = %v, want %v", name, err, tc.want)
 		}
 	}
-	if _, err := c.Start(ctx, provider.SessionRequest{Profile: ok, Mode: provider.ModeTerminal}); !errors.Is(err, provider.ErrUnsupportedMode) {
-		t.Errorf("terminal mode is not available yet: %v", err)
+	if _, err := c.Start(ctx, provider.SessionRequest{Profile: ok, Mode: provider.ModeAPI}); !errors.Is(err, provider.ErrUnsupportedMode) {
+		t.Errorf("a mode Codex CLI does not have must be refused: %v", err)
 	}
 }
 

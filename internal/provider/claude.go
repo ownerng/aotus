@@ -39,7 +39,11 @@ func (c Claude) lookup() func(string) (string, bool) {
 
 // Detect implements Provider.
 func (c Claude) Detect(ctx context.Context, p Profile) (Detection, error) {
-	return detectCLI(ctx, p, "Claude Code", []Mode{ModeStructured}, c.lookup())
+	modes := []Mode{ModeStructured}
+	if proc.PTYSupported() {
+		modes = []Mode{ModeTerminal, ModeStructured} // terminal first: it is the default
+	}
+	return detectCLI(ctx, p, "Claude Code", modes, c.lookup())
 }
 
 // Preflight returns one of the typed errors (ErrCLINotInstalled,
@@ -52,23 +56,71 @@ func (c Claude) Preflight(ctx context.Context, p Profile) error {
 	return d.Err()
 }
 
-// Start implements Provider.
+// Start implements Provider. Claude Code's default mode is terminal: the
+// official interactive UI, hosted unmodified (docs/research/provider-terms.md,
+// Decision). Structured mode runs `claude -p` and needs the user to have
+// accepted a notice.
 func (c Claude) Start(_ context.Context, req SessionRequest) (Session, error) {
-	mode := req.Mode
-	if mode == "" {
-		mode = req.Profile.Mode
-	}
-	switch mode {
+	switch mode := firstMode(req.Mode, req.Profile.Mode, ModeTerminal); mode {
+	case ModeTerminal:
+		if !proc.PTYSupported() {
+			return nil, fmt.Errorf("%w: the terminal mode is not available on this platform yet", ErrUnsupportedMode)
+		}
+		env := ProfileEnv(req.Profile, c.lookup())
+		return newTerminalSession(req, claudeLauncher{}, req.Profile.Binary, env, true), nil
 	case ModeStructured:
 		if !slices.Contains(req.Profile.AcceptedNotices, NoticeClaudeHeadless) {
 			return nil, fmt.Errorf("%w: %s", ErrNoticeRequired, ClaudeHeadlessNotice)
 		}
-	case "":
-		return nil, fmt.Errorf("%w: choose a mode for the profile", ErrUnsupportedMode)
+		return NewProcessSession(ModeStructured, claudeDialect{lookup: c.lookup()}, req), nil
 	default:
-		return nil, fmt.Errorf("%w: Claude Code supports %v for now, not %q", ErrUnsupportedMode, []Mode{ModeStructured}, mode)
+		return nil, fmt.Errorf("%w: Claude Code supports %v, not %q", ErrUnsupportedMode, []Mode{ModeTerminal, ModeStructured}, mode)
 	}
-	return NewProcessSession(ModeStructured, claudeDialect{lookup: c.lookup()}, req), nil
+}
+
+// LoginSession returns a terminal session that runs Claude Code's own login
+// (claude auth login) with the profile's environment, so the user signs in
+// inside Aotus. Aotus never sees the credentials: they are written by the CLI
+// into the profile's configuration directory.
+func (c Claude) LoginSession(p Profile) (TerminalSession, error) {
+	if !proc.PTYSupported() {
+		return nil, fmt.Errorf("%w: the terminal is not available on this platform yet", ErrUnsupportedMode)
+	}
+	return newTerminalSession(SessionRequest{Profile: p}, fixedLauncher{args: []string{"auth", "login"}}, p.Binary, ProfileEnv(p, c.lookup()), false), nil
+}
+
+// claudeFlags are the options shared by every way of starting Claude Code.
+func claudeFlags(req SessionRequest) []string {
+	var args []string
+	if m := firstNonEmpty(req.Model, req.Profile.Model); m != "" {
+		args = append(args, "--model", m)
+	}
+	if req.SystemPrompt != "" {
+		args = append(args, "--append-system-prompt", req.SystemPrompt)
+	}
+	if req.PermissionMode != "" {
+		args = append(args, "--permission-mode", req.PermissionMode)
+	}
+	if len(req.AllowedTools) > 0 {
+		args = append(args, "--allowedTools", strings.Join(req.AllowedTools, ","))
+	}
+	return args
+}
+
+// claudeLauncher builds the command lines of the interactive Claude Code. We
+// choose the session ID ourselves (--session-id) so that it can be resumed
+// later with --resume.
+type claudeLauncher struct{}
+
+func (claudeLauncher) New(req SessionRequest, newID string) []string {
+	return append([]string{"--session-id", newID}, claudeFlags(req)...)
+}
+
+func (claudeLauncher) Resume(req SessionRequest, id string) []string {
+	if id == "" {
+		return append([]string{"--continue"}, claudeFlags(req)...)
+	}
+	return append([]string{"--resume", id}, claudeFlags(req)...)
 }
 
 // claudeDialect builds `claude -p` turns.
@@ -85,18 +137,7 @@ func (d claudeDialect) Turn(t TurnRequest) (Command, Parser, error) {
 	if t.SessionID != "" {
 		args = append(args, "--resume", t.SessionID)
 	}
-	if m := firstNonEmpty(t.Request.Model, p.Model); m != "" {
-		args = append(args, "--model", m)
-	}
-	if t.Request.SystemPrompt != "" {
-		args = append(args, "--append-system-prompt", t.Request.SystemPrompt)
-	}
-	if t.Request.PermissionMode != "" {
-		args = append(args, "--permission-mode", t.Request.PermissionMode)
-	}
-	if len(t.Request.AllowedTools) > 0 {
-		args = append(args, "--allowedTools", strings.Join(t.Request.AllowedTools, ","))
-	}
+	args = append(args, claudeFlags(t.Request)...)
 	return Command{
 		Spec: proc.Spec{Path: p.Binary, Args: args, Dir: t.Request.Dir, Env: ProfileEnv(p, d.lookup)},
 		// The CLI reads the prompt from stdin; this also keeps it out of the

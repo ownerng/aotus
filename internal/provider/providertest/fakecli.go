@@ -56,6 +56,10 @@ const (
 	Interruptible Scenario = "interruptible"
 	// Replay prints the file named by EnvFakeReplay (a recorded stream).
 	Replay Scenario = "replay"
+	// TUI imitates an interactive terminal program: it prints how it was
+	// started, answers each typed line, and ends on /exit. "/size" prints the
+	// size of its terminal.
+	TUI Scenario = "tui"
 	// Argv reports how the CLI was started: binary, arguments, environment and
 	// what arrived on stdin.
 	Argv Scenario = "argv"
@@ -133,6 +137,10 @@ func runFakeCLI(args []string) {
 	if fakeInfo(args) {
 		return
 	}
+	if len(args) == 1 && args[0] == "login" || len(args) == 2 && args[0] == "auth" && args[1] == "login" {
+		runFakeLogin()
+		return
+	}
 
 	var (
 		out       output
@@ -170,6 +178,10 @@ func runFakeCLI(args []string) {
 			opts[strings.TrimPrefix(args[i], "--")] = args[i+1]
 		}
 		scenario, pidfile, resume = Scenario(opts["scenario"]), opts["pidfile"], opts["resume"]
+		if scenario == "" { // an interactive launch: the adapter chose the arguments
+			scenario, pidfile = Scenario(os.Getenv(EnvFakeScenario)), os.Getenv(EnvFakePidFile)
+			resume = interactiveSession(args)
+		}
 	}
 
 	session := "fake-session-1"
@@ -216,6 +228,8 @@ func runFakeCLI(args []string) {
 			out.text("ENV:" + kv)
 		}
 		out.done()
+	case TUI:
+		runFakeTUI(args, session)
 	case Replay:
 		b, err := os.ReadFile(os.Getenv(EnvFakeReplay))
 		if err != nil {
@@ -342,4 +356,60 @@ func (o claudeOutput) interrupted() {
 		"type": "result", "subtype": "error_during_execution", "is_error": true,
 		"terminal_reason": "aborted_streaming", "session_id": fakeClaudeSession,
 	})
+}
+
+// interactiveSession finds the session an interactive launch asks for:
+// "--session-id X" and "--resume X" (Claude Code) or "resume X" / "resume
+// --last" (Codex CLI).
+func interactiveSession(args []string) string {
+	for i, a := range args {
+		switch a {
+		case "--session-id", "--resume":
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+		case "resume":
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+	}
+	return ""
+}
+
+// runFakeTUI is the interactive fake. Carriage returns are explicit because
+// the terminal does not translate output here.
+func runFakeTUI(args []string, session string) {
+	dir, _ := configDir()
+	fmt.Printf("FAKE-TUI ready session=%s config=%s\r\n", session, dir)
+	fmt.Printf("BIN:%s\r\n", os.Args[0])
+	fmt.Printf("ARGS:%s\r\n", strings.Join(args, " "))
+	for _, kv := range os.Environ() {
+		fmt.Printf("ENV:%s\r\n", kv)
+	}
+	sc := bufio.NewScanner(os.Stdin)
+	for sc.Scan() {
+		switch line := strings.TrimSpace(sc.Text()); line {
+		case "/exit":
+			fmt.Print("bye\r\n")
+			return
+		case "/size":
+			fmt.Printf("size:%s\r\n", termSize())
+		default:
+			fmt.Printf("you said: %s\r\n", line)
+		}
+	}
+}
+
+// runFakeLogin imitates `claude auth login` / `codex login`: it waits for
+// Enter and then records the login inside the configuration directory, the way
+// the real CLIs write their credentials there.
+func runFakeLogin() {
+	dir, _ := configDir()
+	fmt.Print("Press Enter to log in\r\n")
+	_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+	if dir != "" {
+		_ = os.WriteFile(filepath.Join(dir, "fake-login"), []byte("in"), 0o600)
+	}
+	fmt.Print("Logged in\r\n")
 }

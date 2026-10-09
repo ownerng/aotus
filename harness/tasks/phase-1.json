@@ -998,7 +998,7 @@
     "id": "P1-022",
     "phase": 1,
     "title": "Terminal-mode sessions and in-profile login for Claude Code and Codex",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-006",
       "P1-007",
@@ -1041,6 +1041,7 @@
       "docs/research/cli-contracts.md",
       "docs/research/provider-terms.md",
       "docs/DECISIONS/0008-provider-integration-and-profiles.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   }
 ]

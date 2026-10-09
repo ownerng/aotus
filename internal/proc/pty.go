@@ -16,6 +16,9 @@ var ErrPTYUnsupported = errors.New("proc: pseudo-terminals are not supported on 
 // ErrPTYClosed is returned when writing to a terminal whose program has ended.
 var ErrPTYClosed = errors.New("proc: the terminal is closed")
 
+// PTYSupported reports whether this build can host programs in a pseudo-terminal.
+func PTYSupported() bool { return ptySupported() }
+
 // PTYSpec describes a program to run inside a pseudo-terminal.
 type PTYSpec struct {
 	Spec
