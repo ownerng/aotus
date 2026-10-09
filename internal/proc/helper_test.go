@@ -93,6 +93,8 @@ func TestHelperProcess(t *testing.T) {
 			fmt.Fprintln(out, "echo:"+sc.Text())
 			flush()
 		}
+	default:
+		runTerminalHelper(os.Getenv("HELPER_MODE"), out)
 	}
 	os.Exit(0)
 }

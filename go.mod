@@ -5,6 +5,7 @@ go 1.26.0
 require modernc.org/sqlite v1.60.1
 
 require (
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
