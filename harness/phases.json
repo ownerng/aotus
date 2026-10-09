@@ -45,7 +45,8 @@
         "name": "quickstart exists",
         "file": "docs/QUICKSTART.md"
       }
-    ]
+    ],
+    "gate_passed_at": "2026-10-09"
   },
   {
     "id": 2,

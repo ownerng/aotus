@@ -31,6 +31,23 @@ Then paste the output and `winver` (or `systeminfo | findstr /B /C:"OS"`) in the
 | 2026-10-09 | Windows Server 2025 Datacenter, 10.0.26100 | GitHub `windows-latest` | `go test -count=1 ./...` ([run 37974496236](https://github.com/ownerng/aotus/actions/runs/37974496236)) | all packages ok, including `internal/proc` (ConPTY, Job Object, detached start), `internal/lifecycle` (lock, autostart), `internal/api`, `internal/provider`, `internal/orchestrator`, `internal/bench` |
 | 2026-10-09 | same | same | `go build -tags desktop` and `go test -tags desktop ./cmd/aotus-desktop` (job "desktop app on windows-latest") | passes; no C compiler step was needed beyond the runner's own |
 
+### The ConPTY run, verbatim
+
+`go test ./internal/proc -run TestPTY -v` on Windows Server 2025 build 10.0.26100 ([run 37975196920](https://github.com/ownerng/aotus/actions/runs/37975196920), step "Windows evidence (ConPTY), verbose"):
+
+```
+=== RUN   TestPTYWindowsRunsProgramAndEnds
+--- PASS: TestPTYWindowsRunsProgramAndEnds (0.53s)
+=== RUN   TestPTYWindowsInputReachesProgram
+--- PASS: TestPTYWindowsInputReachesProgram (0.04s)
+=== RUN   TestPTYWindowsCancelKillsWholeProcessTree
+--- PASS: TestPTYWindowsCancelKillsWholeProcessTree (0.03s)
+=== RUN   TestPTYWindowsCmdEcho
+--- PASS: TestPTYWindowsCmdEcho (0.02s)
+PASS
+ok  	aotus/internal/proc	0.642s
+```
+
 ### What the first runs found (all fixed)
 
 - **ConPTY output went to our stdout.** Without `STARTF_USESTDHANDLES` in the startup info (with no handles given), the program inherits the parent's standard handles and never writes to the pseudo-console. Found by running a known-good library on the same runner and diffing.
