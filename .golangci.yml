@@ -30,6 +30,10 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+      # Test support code: it re-executes the test binary and writes temp files.
+      - path: internal/provider/providertest/
+        linters:
+          - gosec
 
 formatters:
   enable:

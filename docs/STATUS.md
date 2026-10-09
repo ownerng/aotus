@@ -16,9 +16,12 @@
 | 4 | Learn | not planned | open |
 | 5 | Teams | not planned | open |
 
-## Next up
+## In progress
 
 - `P1-004` Provider interface, normalized events and contract suite
+
+## Next up
+
 - `P1-008` Workspace: per-employee folder and scrubbed environment
 - `P1-011` Permissions, approvals and audit log
 - `P1-013` Daemon lifecycle and local network access
@@ -40,7 +43,7 @@
 | P1-001 | done | CLI contracts: observe the real CLIs | F1, S2 | 2026-10-09 |
 | P1-002 | done | proc: supervised child processes | F6, S3 | 2026-10-09 |
 | P1-003 | done | Store: SQLite in WAL mode with migrations | F5 | 2026-10-09 |
-| P1-004 | todo | Provider interface, normalized events and contract suite | F1 |  |
+| P1-004 | in_progress | Provider interface, normalized events and contract suite | F1 |  |
 | P1-005 | todo | Profiles: several subscriptions, isolated | F1, S2 |  |
 | P1-006 | todo | Claude Code adapter | F1, S2 |  |
 | P1-007 | todo | Codex CLI adapter and OpenAI-compatible API adapter | F1, S2 |  |

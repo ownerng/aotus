@@ -69,11 +69,15 @@ Restricted imports: `os/exec` only in `proc`, `harness`, `bench`. `import "C"` n
 - **Event** (structured mode): `TextDelta`, `ToolRequest`, `ToolResult`, `Error`, `Done`, normalized across providers. Events never contain credentials or environment variables.
 - **Action**: something an employee wants to do that the permissions layer classifies (run command, write outside the folder, network, read outside the folder). Sensitive ones need approval.
 
-## Provider interface (finalized in P1-004)
+## Provider interface (implemented in `internal/provider`)
 
-- `Detect(ctx, Profile)` - CLI installed, version, supported modes, login status; never reads credential files.
-- `Start(ctx, SessionRequest) (Session, error)` - starts the CLI process through `proc`.
-- `Session.Events() <-chan Event`, `Session.Send(...)`, `Session.Cancel()`, `Session.Close()`.
+- `Provider.Detect(ctx, Profile) (Detection, error)`: CLI installed, version (and whether it is new enough), supported modes, login status. Never reads credential files.
+- `Provider.Start(ctx, SessionRequest) (Session, error)`: creates a session; no process runs until the first `Send`.
+- `Session`: a conversation. `Send(ctx, prompt)` starts a turn (one at a time, `ErrTurnActive` otherwise); `Events()` delivers normalized events of all turns; `Interrupt()` asks politely (SIGINT) and escalates to a kill after `InterruptGrace`; `CancelTurn()` kills the turn's whole process tree and keeps the session; `Close()` ends everything. `ID()` is the provider's session ID, used to resume in the next turn.
+- **Events** (`EventSession`, `EventText`, `EventToolRequest`, `EventToolResult`, `EventLimits`, `EventError`, `EventDone`): every turn ends with exactly one `EventDone` (`completed`, `canceled` or `failed`) emitted last, after the session is already free for the next turn. A failed turn has at least one `EventError` with a code (`needs_login`, `rate_limited`, `model_unsupported`, `unsupported_version`, `cli_error`, `protocol`, `internal`). `provider.ValidateTurn` enforces these rules. Events never carry credentials or environment variables.
+- **Shared runner**: structured adapters implement only a `Dialect` (build the command for a turn, parse one output line, classify the exit). `NewProcessSession` does the rest: starts the process through `proc` with its stdin closed (CLIs in print mode wait for it otherwise), streams, ignores unknown lines, turns an interrupt or cancel into `canceled` instead of an error, and synthesizes the done event when the CLI sends none.
+- **Contract suite** (`internal/provider/providertest`): `RunContract` checks normalized events, resume, cancel killing the process tree, interrupt, no environment leak, closed stdin, one turn at a time, and close. Every adapter must pass it with a fake CLI that speaks its dialect. The fake provider is the same shared runner over a scripted fake CLI (the test binary itself, see `MaybeRunFakeCLI`).
+- `ModeTerminal` sessions expose the raw pseudo-terminal through the `Terminal` interface instead of events; their contract is added with the PTY work in P1-006.
 
 ## Concurrency model
 

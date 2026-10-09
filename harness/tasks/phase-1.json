@@ -140,7 +140,7 @@
     "id": "P1-004",
     "phase": 1,
     "title": "Provider interface, normalized events and contract suite",
-    "status": "todo",
+    "status": "in_progress",
     "depends_on": [
       "P1-002"
     ],
