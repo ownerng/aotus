@@ -5,6 +5,7 @@ package proc
 import (
 	"context"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -84,10 +85,8 @@ func TestPTYWindowsCancelKillsWholeProcessTree(t *testing.T) {
 	p := startWinPTY(t, "HELPER_MODE=tree")
 	out := winOutput(t, p, "pids ")
 	var leader, grandchild int
-	for _, line := range strings.Split(out, "\n") {
-		if f := strings.Fields(strings.TrimSpace(line)); len(f) == 3 && f[0] == "pids" {
-			leader, grandchild = atoi(f[1]), atoi(f[2])
-		}
+	if m := regexp.MustCompile(`pids (\d+) (\d+)`).FindStringSubmatch(out); m != nil { // ConPTY puts escape sequences around the text
+		leader, grandchild = atoi(m[1]), atoi(m[2])
 	}
 	if leader == 0 || grandchild == 0 || !alive(leader) || !alive(grandchild) {
 		t.Fatalf("both processes must be running first (leader %d, grandchild %d) in %q", leader, grandchild, out)
