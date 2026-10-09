@@ -959,7 +959,7 @@
     "id": "P1-021",
     "phase": 1,
     "title": "proc: pseudo-terminal on Windows (ConPTY), verified on Windows",
-    "status": "todo",
+    "status": "blocked",
     "depends_on": [
       "P1-018",
       "P1-020"
@@ -1001,7 +1001,8 @@
     ],
     "docs": [
       "docs/ARCHITECTURE.md"
-    ]
+    ],
+    "notes": "ConPTY backend and Windows tests are written and cross-compile, but nothing was run on Windows. Needs the windows-latest CI run or a Windows machine; paste the results into docs/research/windows-verification.md."
   },
   {
     "id": "P1-022",

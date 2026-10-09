@@ -83,12 +83,12 @@ func (p *Process) attach() error {
 	info := jobObjectExtendedLimitInformation{}
 	info.BasicLimitInformation.LimitFlags = jobObjectLimitKillOnJobClose
 	r, _, err := procSetInformationJobObject.Call(job, jobObjectExtendedLimitInformationClass,
-		uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info))
+		uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info)) //nolint:gosec // the Win32 call takes a pointer to the struct
 	if r == 0 {
 		_ = syscall.CloseHandle(syscall.Handle(job))
 		return err
 	}
-	h, err := syscall.OpenProcess(processSetQuota|processTerminate, false, uint32(p.cmd.Process.Pid))
+	h, err := syscall.OpenProcess(processSetQuota|processTerminate, false, uint32(p.cmd.Process.Pid)) //nolint:gosec // PIDs fit in 32 bits
 	if err != nil {
 		_ = syscall.CloseHandle(syscall.Handle(job))
 		return err
@@ -99,28 +99,28 @@ func (p *Process) attach() error {
 		_ = syscall.CloseHandle(syscall.Handle(job))
 		return err
 	}
-	p.platform.mu.Lock()
-	p.platform.job = syscall.Handle(job)
-	p.platform.mu.Unlock()
+	p.mu.Lock()
+	p.job = syscall.Handle(job)
+	p.mu.Unlock()
 	return nil
 }
 
 func (p *Process) closePlatform() {
-	p.platform.mu.Lock()
-	defer p.platform.mu.Unlock()
-	if p.platform.job != 0 {
-		_ = syscall.CloseHandle(p.platform.job)
-		p.platform.job = 0
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.job != 0 {
+		_ = syscall.CloseHandle(p.job)
+		p.job = 0
 	}
 }
 
 // terminate ends every process in the job. Windows has no polite request for
 // a whole tree, so graceful and forced are the same here.
 func (p *Process) terminate(bool) {
-	p.platform.mu.Lock()
-	defer p.platform.mu.Unlock()
-	if p.platform.job != 0 {
-		_, _, _ = procTerminateJobObject.Call(uintptr(p.platform.job), 1)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.job != 0 {
+		_, _, _ = procTerminateJobObject.Call(uintptr(p.job), 1)
 	}
 }
 
