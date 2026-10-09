@@ -29,6 +29,10 @@ func TestDefaultsToLoopback(t *testing.T) {
 			if addr == "[::1]:0" {
 				t.Skipf("IPv6 loopback is not available here: %v", err)
 			}
+			if addr == "127.0.0.2:0" && runtime.GOOS == "darwin" {
+				t.Logf("macOS only has 127.0.0.1 on its loopback interface: %v", err)
+				continue
+			}
 			t.Fatalf("Listen(%q): %v", addr, err)
 		}
 		ip, _ := netip.ParseAddr(l.Addr().(*net.TCPAddr).IP.String())

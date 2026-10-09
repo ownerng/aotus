@@ -4,6 +4,7 @@ package proc
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func winOutput(t *testing.T, p *PTYProcess, want string) string {
 		select {
 		case chunk, ok := <-live:
 			if !ok {
-				t.Fatalf("the terminal closed before %q appeared; output so far: %q", want, got)
+				t.Fatalf("the terminal closed before %q appeared; exit %+v; output so far: %q", want, p.Wait(), got)
 			}
 			got += string(chunk)
 		case <-deadline:
@@ -112,4 +113,21 @@ func atoi(s string) int {
 		n = n*10 + int(c-'0')
 	}
 	return n
+}
+
+// A program that is not our own helper: tells a ConPTY problem apart from a
+// problem of the helper.
+func TestPTYWindowsCmdEcho(t *testing.T) {
+	if !PTYSupported() {
+		t.Skip("no ConPTY here")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	comspec := os.Getenv("COMSPEC")
+	p, err := StartPTY(ctx, PTYSpec{Spec: Spec{Path: comspec, Args: []string{"/c", "echo", "conpty-works"}, Env: []string{"SYSTEMROOT=" + os.Getenv("SYSTEMROOT")}}})
+	if err != nil {
+		t.Fatalf("StartPTY: %v", err)
+	}
+	t.Cleanup(p.Cancel)
+	winOutput(t, p, "conpty-works")
 }

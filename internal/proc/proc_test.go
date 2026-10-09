@@ -161,7 +161,7 @@ func TestMissingBinaryReturnsClearError(t *testing.T) {
 	if !errors.Is(err, ErrBinaryNotFound) {
 		t.Fatalf("err = %v, want ErrBinaryNotFound", err)
 	}
-	if !strings.Contains(err.Error(), missing) {
+	if !strings.Contains(err.Error(), missing) && !strings.Contains(err.Error(), strings.ReplaceAll(missing, `\`, `\\`)) { // %q doubles backslashes on Windows
 		t.Fatalf("the error must name the path %q, got %q", missing, err)
 	}
 	if _, err := Start(context.Background(), Spec{}); err == nil {

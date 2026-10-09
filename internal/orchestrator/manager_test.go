@@ -276,7 +276,7 @@ func TestCancelIsImmediate(t *testing.T) {
 }
 
 func TestSlowSubscriberDoesNotBlock(t *testing.T) {
-	r := newRig(t, Options{SubscriberBuffer: 64})
+	r := newRig(t, Options{SubscriberBuffer: 512}) // the Chatty program sends well over 1500 events
 	ctx := context.Background()
 	emp, _ := r.worker(t, "Atlas", providertest.Chatty)
 
