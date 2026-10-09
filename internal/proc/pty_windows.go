@@ -33,6 +33,8 @@ type conPTY struct {
 	closed bool
 }
 
+var variant = os.Getenv("AOTUS_CONPTY_VARIANT") // TEMP
+
 func openPTY(spec PTYSpec) (ptyBackend, error) {
 	// Two pipes: the pseudo-console reads input from inR and writes output to outW.
 	var inR, inW, outR, outW windows.Handle
@@ -53,8 +55,11 @@ func openPTY(spec PTYSpec) (ptyBackend, error) {
 		return nil, fmt.Errorf("proc: creating the pseudo-console (needs Windows 10 1809 or newer): %w", err)
 	}
 	// The pseudo-console keeps its own copies of its ends.
-	_ = windows.CloseHandle(inR)
-	_ = windows.CloseHandle(outW)
+	keep := strings.Contains(variant, "keep")
+	if !keep {
+		_ = windows.CloseHandle(inR)
+		_ = windows.CloseHandle(outW)
+	}
 
 	c := &conPTY{
 		hpc: hpc,
@@ -103,6 +108,9 @@ func (c *conPTY) start(spec PTYSpec) error {
 	}
 	var pi windows.ProcessInformation
 	flags := uint32(windows.EXTENDED_STARTUPINFO_PRESENT | windows.CREATE_UNICODE_ENVIRONMENT | windows.CREATE_SUSPENDED)
+	if strings.Contains(variant, "nosusp") {
+		flags &^= windows.CREATE_SUSPENDED
+	}
 	if err := windows.CreateProcess(nil, cmdline, nil, nil, false, flags, &env[0], dir, &si.StartupInfo, &pi); err != nil {
 		_ = windows.CloseHandle(job)
 		return err
@@ -115,6 +123,11 @@ func (c *conPTY) start(spec PTYSpec) error {
 		_ = windows.CloseHandle(pi.Thread)
 		_ = windows.CloseHandle(job)
 		return err
+	}
+	if strings.Contains(variant, "nosusp") {
+		_ = windows.CloseHandle(pi.Thread)
+		c.proc, c.job, c.pid = pi.Process, job, int(pi.ProcessId)
+		return nil
 	}
 	if _, err := windows.ResumeThread(pi.Thread); err != nil {
 		_ = windows.TerminateJobObject(job, 1)

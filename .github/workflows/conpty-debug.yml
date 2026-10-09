@@ -1,0 +1,21 @@
+name: conpty-debug
+on:
+  workflow_dispatch:
+  push:
+    branches: [conpty-debug]
+jobs:
+  variants:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Variants
+        shell: bash
+        run: |
+          for v in base keep nosusp keep-nosusp; do
+            echo "=== variant $v"
+            AOTUS_CONPTY_VARIANT=$v go test -count=1 -run 'TestPTYWindowsCmdEcho' -v ./internal/proc 2>&1 | grep -E "^(---|ok|FAIL|\s+pty_windows)|DEBUG" | cut -c1-250 || true
+          done
+          systeminfo | grep -E "^OS (Name|Version)" || true
