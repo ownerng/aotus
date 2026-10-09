@@ -16,9 +16,12 @@
 | 4 | Learn | not planned | open |
 | 5 | Teams | not planned | open |
 
-## Next up
+## In progress
 
 - `P1-016` Desktop stack spike: Wails version and frontend framework
+
+## Next up
+
 - `P1-019` Performance budgets as tests
 - `P1-021` proc: pseudo-terminal on Windows (ConPTY), verified on Windows
 
@@ -51,7 +54,7 @@
 | P1-013 | done | Daemon lifecycle and local network access | F17, S1 | 2026-10-09 |
 | P1-014 | done | API: HTTP and WebSocket with authentication | F3, S1 | 2026-10-09 |
 | P1-015 | done | Go client and the aotus command | F2, F3 | 2026-10-09 |
-| P1-016 | todo | Desktop stack spike: Wails version and frontend framework | F16 |  |
+| P1-016 | in_progress | Desktop stack spike: Wails version and frontend framework | F16 |  |
 | P1-017 | todo | Desktop app: window, tray, employees, chat and approvals | F2, F3, F4, F16 |  |
 | P1-018 | todo | Packaging and CI on every operating system | N8 |  |
 | P1-019 | todo | Performance budgets as tests | N1, N2, N3, N4, N6, N7 |  |

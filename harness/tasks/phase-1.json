@@ -673,7 +673,7 @@
     "id": "P1-016",
     "phase": 1,
     "title": "Desktop stack spike: Wails version and frontend framework",
-    "status": "todo",
+    "status": "in_progress",
     "depends_on": [
       "P1-015"
     ],
@@ -735,14 +735,14 @@
       "F4",
       "F16"
     ],
-    "description": "Build cmd/aotus-desktop (build tag desktop) with the stack decided in ADR 0010. On start it finds a running daemon through the discovery file or starts aotusd; closing the window leaves the daemon and its agents running and a tray entry reopens it. Screens: profiles (link a subscription, see login status and limits), employee list, create employee, chat with streaming and cancel, approvals, history. Keep memory low: virtualized message list, history loaded on demand, incremental streaming. Employees in terminal mode show the official UI in an embedded terminal view (xterm.js); the profile screen runs the in-profile login flow.",
+    "description": "Build cmd/aotus-desktop (build tag desktop) with the stack decided in ADR 0010: Wails v3 (gtk3 tag on Linux) and a Svelte frontend. The Go side of the app uses internal/client and exposes typed methods and events to the frontend; the token never reaches the WebView. On start it finds a running daemon through the discovery file or starts aotusd; closing the window quits the app by default (only the daemon stays), with a setting to keep it in the tray. Screens: profiles (link a subscription, see login status, run the in-profile login), employee list, create employee, chat with streaming and cancel, terminal view (xterm.js), approvals, history. Keep memory low: virtualized message list, history loaded on demand, incremental streaming. Record the memory of the window with a 1000-message history in docs/BENCHMARKS.md.",
     "acceptance": [
       "The app reuses a running daemon or starts one, and never embeds it",
-      "Closing the window keeps the daemon and its sessions running; the tray entry reopens the window",
-      "A user can link a profile, create an employee, chat with streaming, cancel and answer approvals",
+      "Closing the window quits the app and leaves the daemon and its sessions running; with the tray option on, a tray entry reopens the window",
+      "A user can link a profile, log it in, create an employee, chat with streaming, cancel, answer approvals and use a terminal-mode employee",
+      "The frontend never receives the token and never calls the daemon directly",
       "Long histories are virtualized and loaded on demand; memory with 1000 messages is measured and recorded in docs/BENCHMARKS.md",
-      "The app builds with go build -tags desktop on Windows, macOS and Linux",
-      "A terminal-mode employee shows the official interface in the app, and a profile can be logged in from the app"
+      "The app builds with go build -tags desktop on Linux (gtk3 tag), macOS and Windows"
     ],
     "checks": [
       {
@@ -769,7 +769,7 @@
         ]
       },
       {
-        "name": "web tab memory recorded",
+        "name": "desktop window memory recorded",
         "file": "docs/BENCHMARKS.md",
         "contains": [
           "Desktop window memory"
