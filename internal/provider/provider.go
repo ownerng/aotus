@@ -35,18 +35,6 @@ var (
 	ErrUnsupportedMode = errors.New("mode is not supported by this provider")
 )
 
-// Profile is how to reach one subscription: which CLI, with which isolated
-// configuration directory. It holds no secrets (ADR 0008).
-type Profile struct {
-	ID        string
-	Name      string
-	Kind      Kind
-	Binary    string // path of the official CLI
-	ConfigDir string // isolated configuration directory of this profile
-	Mode      Mode
-	Model     string // optional model override
-}
-
 // LoginState is what a provider can tell about the login of a profile.
 type LoginState string
 

@@ -46,7 +46,7 @@ An arrow means "may import". Anything not listed is forbidden. `harness/architec
 | `internal/workspace` | per-employee folder, path-escape protection, scrubbed environment, trash | datadir, version |
 | `internal/lifecycle` | single-instance lock, discovery file, autostart per OS | datadir, version |
 | `internal/netaccess` | bind rules, local token (tsnet in phase 2) | datadir, version |
-| `internal/provider` | provider adapters, profiles, login detection, normalized events | proc, version |
+| `internal/provider` | provider adapters, profiles, login detection, normalized events | proc, datadir, version |
 | `internal/permissions` | action classification, approvals, audit log | store, version |
 | `internal/orchestrator` | employees, sessions, turns, streaming, cancel, parallelism, restart policy | provider, proc, workspace, permissions, store, version |
 | `internal/api` | HTTP + WebSocket, authentication, origin validation | orchestrator, permissions, store, netaccess, version |

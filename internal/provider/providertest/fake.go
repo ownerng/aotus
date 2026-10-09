@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"runtime"
 	"time"
 
 	"aotus/internal/proc"
@@ -48,10 +47,11 @@ func (f Fake) Start(_ context.Context, req provider.SessionRequest) (provider.Se
 type fakeDialect struct{ f Fake }
 
 func (d fakeDialect) Command(t provider.TurnRequest) (provider.Command, error) {
-	env := []string{EnvFakeCLI + "=1"}
-	if runtime.GOOS == "windows" {
-		env = append(env, "SYSTEMROOT="+os.Getenv("SYSTEMROOT"))
-	}
+	// Use the real environment builder, so the contract tests exercise the
+	// allow-list and not a hand-written copy of it.
+	prof := t.Request.Profile
+	prof.ExtraEnv = map[string]string{EnvFakeCLI: "1"}
+	env := provider.ProfileEnv(prof, provider.OSEnv)
 	return provider.Command{Spec: proc.Spec{
 		Path: os.Args[0],
 		Args: []string{

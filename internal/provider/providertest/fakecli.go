@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -54,7 +55,38 @@ func MaybeRunFakeCLI() {
 
 type fakeLine map[string]any
 
+// fakeStatus answers "auth status" (Claude Code style JSON) and "login status"
+// (Codex CLI style text). Like the real CLIs, the fake keeps its login state
+// inside its configuration directory: the file "fake-login" holds "in" or
+// "out".
+func fakeStatus(args []string) bool {
+	if len(args) != 2 || args[1] != "status" || (args[0] != "auth" && args[0] != "login") {
+		return false
+	}
+	dir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if args[0] == "login" {
+		dir = os.Getenv("CODEX_HOME")
+	}
+	state, _ := os.ReadFile(filepath.Join(dir, "fake-login"))
+	loggedIn := strings.TrimSpace(string(state)) == "in"
+	switch {
+	case args[0] == "auth" && loggedIn:
+		fmt.Println(`{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty","email":"someone@example.com","orgName":"Example","subscriptionType":"pro"}`)
+	case args[0] == "auth":
+		fmt.Println(`{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}`)
+	case loggedIn:
+		fmt.Fprintln(os.Stderr, "WARNING: proceeding, even though we could not create PATH aliases")
+		fmt.Println("Logged in using ChatGPT")
+	default:
+		fmt.Println("Not logged in")
+	}
+	return true
+}
+
 func runFakeCLI(args []string) {
+	if fakeStatus(args) {
+		return
+	}
 	opts := map[string]string{}
 	for i := 0; i+1 < len(args); i += 2 {
 		opts[strings.TrimPrefix(args[i], "--")] = args[i+1]

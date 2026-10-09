@@ -179,7 +179,7 @@
     "id": "P1-005",
     "phase": 1,
     "title": "Profiles: several subscriptions, isolated",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-001",
       "P1-004"
@@ -217,7 +217,8 @@
       "docs/research/cli-contracts.md",
       "docs/DECISIONS/0008-provider-integration-and-profiles.md",
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-006",
