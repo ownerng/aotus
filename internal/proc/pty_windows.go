@@ -179,7 +179,7 @@ func (c *conPTY) Pid() int                    { return c.pid }
 func (c *conPTY) Resize(rows, cols uint16) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.closed {
+	if c.closed || c.hpc == 0 {
 		return ErrPTYClosed
 	}
 	if err := windows.ResizePseudoConsole(c.hpc, windows.Coord{X: int16(cols), Y: int16(rows)}); err != nil { //nolint:gosec // a terminal size is small
@@ -205,7 +205,22 @@ func (c *conPTY) Wait() Exit {
 	if err := windows.GetExitCodeProcess(c.proc, &code); err == nil {
 		e.Code = int(code)
 	}
+	// ConPTY delivers the program's last output only when the pseudo-console is
+	// closed, and closing it can wait for the output to be read, so do it while
+	// the reader keeps draining. It also ends the output pipe, which is how the
+	// reader learns the program is over.
+	go c.closeConsole()
 	return e
+}
+
+func (c *conPTY) closeConsole() {
+	c.mu.Lock()
+	h := c.hpc
+	c.hpc = 0
+	c.mu.Unlock()
+	if h != 0 {
+		windows.ClosePseudoConsole(h)
+	}
 }
 
 // Close closes the pseudo-console, which ends the output pipe, and releases
@@ -223,10 +238,7 @@ func (c *conPTY) Close() error {
 }
 
 func (c *conPTY) release() {
-	if c.hpc != 0 {
-		windows.ClosePseudoConsole(c.hpc)
-		c.hpc = 0
-	}
+	c.closeConsole()
 	if c.in != nil {
 		_ = c.in.Close()
 	}
