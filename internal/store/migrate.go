@@ -82,6 +82,24 @@ var migrations = []Migration{
 			BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
 		`,
 	},
+	{
+		Version: 3,
+		Name:    "permission_grants",
+		SQL: `
+		-- Decisions the user asked to remember. Scoped to one employee and one
+		-- kind of action: a grant for one employee never applies to another.
+		-- Target is the exact thing approved (a command, a path, a host) or '*'
+		-- for every target of that kind.
+		CREATE TABLE permission_grants (
+			employee_id  TEXT NOT NULL,
+			kind         TEXT NOT NULL,
+			target       TEXT NOT NULL,
+			decision     TEXT NOT NULL CHECK (decision IN ('allow', 'deny')),
+			created_at   TEXT NOT NULL,
+			PRIMARY KEY (employee_id, kind, target)
+		) STRICT;
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,

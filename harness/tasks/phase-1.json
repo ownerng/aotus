@@ -446,7 +446,7 @@
     "id": "P1-011",
     "phase": 1,
     "title": "Permissions, approvals and audit log",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P1-003"
     ],
@@ -478,7 +478,8 @@
     "docs": [
       "docs/ARCHITECTURE.md",
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-09"
   },
   {
     "id": "P1-012",
