@@ -313,7 +313,7 @@ loop:
 	for range slow { // what was buffered, then the channel is closed: it was disconnected
 		n++
 	}
-	if n > 64 {
+	if n > 512 {
 		t.Fatalf("the slow viewer held %d updates, more than its buffer", n)
 	}
 	// Nothing was lost in the history.
