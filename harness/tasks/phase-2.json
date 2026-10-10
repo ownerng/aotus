@@ -53,7 +53,7 @@
     "id": "P2-002",
     "phase": 2,
     "title": "Listeners and caller identity in netaccess",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-001"
     ],
@@ -87,7 +87,8 @@
     "docs": [
       "docs/DECISIONS/0014-tailnet-access.md",
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-003",

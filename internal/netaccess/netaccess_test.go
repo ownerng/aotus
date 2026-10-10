@@ -1,14 +1,17 @@
 package netaccess
 
 import (
+	"context"
 	"errors"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"aotus/internal/datadir"
 )
@@ -148,5 +151,119 @@ func TestTokenRegeneratedWhenMissing(t *testing.T) {
 	}
 	if !TokenValid(rotated, rotated) || TokenValid("wrong", rotated) || TokenValid("", "") || TokenValid(rotated[:63], rotated) {
 		t.Fatal("TokenValid must accept only the exact token, and never an empty one")
+	}
+}
+
+func TestNoOptionListensOnAWildcard(t *testing.T) {
+	for _, addr := range []string{"0.0.0.0:0", "[::]:0", ":0", "192.168.1.5:0", "8.8.8.8:0", "example.com:80"} {
+		if l, err := Listen(addr); err == nil {
+			_ = l.Close()
+			t.Errorf("Listen(%q) must be refused", addr)
+		}
+	}
+	for _, s := range []string{"0.0.0.0", "::", "127.0.0.1", "192.168.1.5", "10.0.0.1", "8.8.8.8", "100.63.255.255", "100.128.0.0", "fd7a:115c:a1e1::1", "::ffff:8.8.8.8"} {
+		ip := netip.MustParseAddr(s)
+		if l, err := ListenTailnet(ip, "0", StaticIdentifier{}, nil); err == nil {
+			_ = l.Close()
+			t.Errorf("ListenTailnet(%s) must be refused: it is not a tailnet address", s)
+		} else if !errors.Is(err, ErrNotTailnet) {
+			t.Errorf("ListenTailnet(%s) = %v, want ErrNotTailnet", s, err)
+		}
+	}
+	for _, s := range []string{"100.64.0.1", "100.127.255.254", "fd7a:115c:a1e0::1", "fd7a:115c:a1e0:ab12:4843:cd96:6266:1234", "::ffff:100.100.1.1"} {
+		if err := CheckTailnetAddr(netip.MustParseAddr(s)); err != nil {
+			t.Errorf("%s is a tailnet address: %v", s, err)
+		}
+	}
+	if k, err := ParseKind(""); err != nil || k != KindLoopback {
+		t.Errorf("the default kind is loopback, got %q, %v", k, err)
+	}
+	for _, bad := range []string{"any", "public", "0.0.0.0", "all"} {
+		if _, err := ParseKind(bad); err == nil {
+			t.Errorf("ParseKind(%q) must be refused", bad)
+		}
+	}
+	if _, err := ListenTailnet(netip.MustParseAddr("100.64.0.1"), "0", nil, nil); err == nil {
+		t.Error("a tailnet listener without an identifier must be refused")
+	}
+}
+
+func TestTailnetListenerRefusesUnidentifiedPeer(t *testing.T) {
+	ctx := context.Background()
+	// The test connects from 127.0.0.1, which the identifier does not know.
+	l, err := listenIdentified("127.0.0.1:0", StaticIdentifier{"10.9.9.9": {Login: "x@example.com"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = l.Close() }()
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		if c, err := l.Accept(); err == nil {
+			accepted <- c
+		}
+	}()
+	var d net.Dialer
+	c, err := d.DialContext(ctx, "tcp", l.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	_ = c.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if _, err := c.Read(make([]byte, 1)); err == nil {
+		t.Fatal("the daemon must close a connection it cannot identify, not talk to it")
+	}
+	select {
+	case <-accepted:
+		t.Fatal("an unidentified peer must never be returned by Accept")
+	default:
+	}
+
+	// A device with no person (tag only) is refused too.
+	l2, _ := listenIdentified("127.0.0.1:0", StaticIdentifier{"127.0.0.1": {Device: "build-box", Tags: []string{"tag:ci"}}}, nil)
+	defer func() { _ = l2.Close() }()
+	go func() { _, _ = l2.Accept() }()
+	c2, err := d.DialContext(ctx, "tcp", l2.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c2.Close() }()
+	_ = c2.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if _, err := c2.Read(make([]byte, 1)); err == nil {
+		t.Fatal("a device with no person behind it must be refused")
+	}
+}
+
+func TestCallerReachesHandlers(t *testing.T) {
+	want := Caller{Login: "ana@example.com", Device: "laptop"}
+	l, err := listenIdentified("127.0.0.1:0", StaticIdentifier{"127.0.0.1": want}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(chan Caller, 1)
+	srv := &http.Server{ConnContext: ConnContext, ReadHeaderTimeout: 5 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, ok := CallerFrom(r.Context())
+		if !ok {
+			http.Error(w, "no caller", 500)
+			return
+		}
+		got <- c
+	})}
+	go func() { _ = srv.Serve(l) }()
+	defer func() { _ = srv.Close() }()
+
+	resp, err := http.Get("http://" + l.Addr().String() + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	c := <-got
+	if c.Login != want.Login || c.Device != want.Device || c.Method != MethodTailnet {
+		t.Fatalf("caller = %+v, want %+v over the tailnet", c, want)
+	}
+	if s := c.String(); !strings.Contains(s, "ana@example.com") || !strings.Contains(s, "laptop") {
+		t.Fatalf("String() = %q", s)
+	}
+	if _, ok := CallerFrom(context.Background()); ok {
+		t.Fatal("a plain context carries no caller")
 	}
 }
