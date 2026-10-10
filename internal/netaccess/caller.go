@@ -119,24 +119,38 @@ func ListenTailnet(ip netip.Addr, port string, id Identifier, log *slog.Logger) 
 	if err := CheckTailnetAddr(ip); err != nil {
 		return nil, err
 	}
-	return listenIdentified(net.JoinHostPort(ip.Unmap().String(), port), id, log)
-}
-
-// listenIdentified is ListenTailnet after the address check; tests use it on
-// loopback, where no tailnet address exists.
-func listenIdentified(addr string, id Identifier, log *slog.Logger) (net.Listener, error) {
 	if id == nil {
 		return nil, errors.New("netaccess: a tailnet listener needs an identifier")
 	}
-	if log == nil {
-		log = slog.Default()
-	}
+	addr := net.JoinHostPort(ip.Unmap().String(), port)
 	var lc net.ListenConfig
 	l, err := lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("netaccess: listening on %s: %w", addr, err)
 	}
-	return &identifiedListener{Listener: l, id: id, log: log}, nil
+	return IdentifyListener(l, id, log), nil
+}
+
+// IdentifyListener wraps a listener so that Accept only returns connections
+// whose peer id could tie to a person. It opens nothing itself; ListenTailnet
+// is the only place in the product that picks the address. Tests wrap a
+// listener of their own.
+func IdentifyListener(l net.Listener, id Identifier, log *slog.Logger) net.Listener {
+	if log == nil {
+		log = slog.Default()
+	}
+	return &identifiedListener{Listener: l, id: id, log: log}
+}
+
+// listenIdentified is for the tests of this package: a loopback listener with
+// identification.
+func listenIdentified(addr string, id Identifier, log *slog.Logger) (net.Listener, error) {
+	var lc net.ListenConfig
+	l, err := lc.Listen(context.Background(), "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return IdentifyListener(l, id, log), nil
 }
 
 type identifiedListener struct {

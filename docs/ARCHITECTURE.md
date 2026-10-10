@@ -19,7 +19,7 @@ A polished interface for working in the agentic era. The person creates **employ
                                  internal/workspace     per-employee folder + scrubbed env
                                  internal/proc          supervised child processes (process tree)
                                  internal/lifecycle     single instance, discovery file, autostart
-                                 internal/netaccess     bind rules, local token   (tsnet in phase 2)
+                                 internal/netaccess     bind rules, local token, tailnet listener and caller identity (system Tailscale LocalAPI, ADR 0014)
                                           |
                                           v  starts, supervises, kills the whole tree
                                  one process per employee session  ------>  claude / codex / grok ...
@@ -46,7 +46,7 @@ An arrow means "may import". Anything not listed is forbidden. `harness/architec
 | `internal/store` | SQLite (WAL, pure-Go driver), migrations, memory | datadir, version |
 | `internal/workspace` | per-employee folder, path-escape protection, scrubbed environment, trash | datadir, version |
 | `internal/lifecycle` | single-instance lock, discovery file, autostart per OS | datadir, version |
-| `internal/netaccess` | bind rules, local token (tsnet in phase 2) | datadir, version |
+| `internal/netaccess` | bind rules, local token, tailnet listener, caller identity through the local Tailscale (ADR 0014) | datadir, version |
 | `internal/provider` | provider adapters, profiles, login detection, normalized events | proc, datadir, version |
 | `internal/permissions` | action classification, approvals, audit log | store, version |
 | `internal/orchestrator` | employees, sessions, turns, streaming, cancel, parallelism, restart policy | provider, proc, workspace, permissions, store, version |

@@ -155,7 +155,7 @@
     "id": "P2-004",
     "phase": 2,
     "title": "Tailnet listener in the daemon (system Tailscale, LocalAPI)",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-002",
       "P2-003"
@@ -200,7 +200,8 @@
     "docs": [
       "docs/DECISIONS/0014-tailnet-access.md",
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-005",

@@ -1,0 +1,51 @@
+{
+  "Version": "1.102.5-t0000",
+  "TUN": false,
+  "BackendState": "Stopped",
+  "AuthURL": "",
+  "TailscaleIPs": null,
+  "Self": {
+    "ID": "",
+    "NodeID": 0,
+    "PublicKey": "nodekey:0000000000000000000000000000000000000000000000000000000000000000",
+    "HostName": "vps",
+    "DNSName": "",
+    "OS": "",
+    "UserID": 0,
+    "TailscaleIPs": null,
+    "Addrs": null,
+    "CurAddr": "",
+    "Relay": "",
+    "PeerRelay": "",
+    "RxBytes": 0,
+    "TxBytes": 0,
+    "Created": "0001-01-01T00:00:00Z",
+    "LastWrite": "0001-01-01T00:00:00Z",
+    "LastSeen": "0001-01-01T00:00:00Z",
+    "LastHandshake": "0001-01-01T00:00:00Z",
+    "Online": false,
+    "ExitNode": false,
+    "ExitNodeOption": false,
+    "Active": false,
+    "PeerAPIURL": null,
+    "TaildropTarget": 0,
+    "NoFileSharingReason": "",
+    "InNetworkMap": false,
+    "InMagicSock": false,
+    "InEngine": false
+  },
+  "Health": null,
+  "MagicDNSSuffix": "tail1234.ts.net",
+  "CurrentTailnet": null,
+  "CertDomains": null,
+  "ExtraRecords": null,
+  "Peer": null,
+  "User": {
+    "4242": {
+      "ID": 4242,
+      "LoginName": "owner@example.com",
+      "DisplayName": "Owner"
+    }
+  },
+  "ClientVersion": null
+}

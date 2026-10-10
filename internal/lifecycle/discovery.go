@@ -18,6 +18,9 @@ type Discovery struct {
 	Address   string    `json:"address"` // host:port, always loopback in phase 1
 	StartedAt time.Time `json:"started_at"`
 	Version   string    `json:"version"`
+	// Tailnet is host:port of the tailnet listener when it is on (the MagicDNS
+	// name and the port); empty otherwise. Local clients keep using Address.
+	Tailnet string `json:"tailnet,omitempty"`
 }
 
 // ErrNoDaemon means no discovery file exists.

@@ -1,0 +1,22 @@
+{
+  "Node": {
+    "ID": 2,
+    "StableID": "nCI1CNTRL",
+    "Name": "ci.tail1234.ts.net.",
+    "User": 99,
+    "Key": "nodekey:0000000000000000000000000000000000000000000000000000000000000000",
+    "Addresses": [
+      "100.64.0.20/32"
+    ],
+    "Tags": [
+      "tag:ci"
+    ],
+    "ComputedName": "ci"
+  },
+  "UserProfile": {
+    "ID": 99,
+    "LoginName": "tagged-devices",
+    "DisplayName": "Tagged devices"
+  },
+  "CapMap": null
+}

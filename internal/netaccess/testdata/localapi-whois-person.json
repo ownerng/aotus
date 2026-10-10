@@ -1,0 +1,19 @@
+{
+  "Node": {
+    "ID": 1,
+    "StableID": "nLAPTOP1CNTRL",
+    "Name": "laptop.tail1234.ts.net.",
+    "User": 4242,
+    "Key": "nodekey:0000000000000000000000000000000000000000000000000000000000000000",
+    "Addresses": [
+      "100.64.0.9/32"
+    ],
+    "ComputedName": "laptop"
+  },
+  "UserProfile": {
+    "ID": 4242,
+    "LoginName": "Ana@Example.com",
+    "DisplayName": "Ana"
+  },
+  "CapMap": null
+}
