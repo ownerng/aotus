@@ -250,3 +250,111 @@ func TestDesktopExecEscaping(t *testing.T) {
 		}
 	}
 }
+
+func TestSystemdUnitText(t *testing.T) {
+	user, err := Unit(UnitOptions{ExecPath: "/home/me/bin/aotusd", DataDir: "/home/me/.aotus", Tailnet: true, Port: "7843", Owner: "me@example.com", MemoryMax: "3G"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"[Unit]", "[Service]", "[Install]",
+		"After=network-online.target tailscaled.service",
+		"ExecStart=/home/me/bin/aotusd --data-dir /home/me/.aotus --tailnet --tailnet-port 7843 --owner me@example.com",
+		"Environment=PATH=%h/.local/bin:", "Restart=on-failure", "TimeoutStopSec=30", "KillMode=control-group",
+		"NoNewPrivileges=yes", "MemoryMax=3G", "WantedBy=default.target",
+	} {
+		if !strings.Contains(user, want) {
+			t.Errorf("the user unit misses %q:\n%s", want, user)
+		}
+	}
+	if strings.Contains(user, "User=") || strings.Contains(user, "ProtectSystem") {
+		t.Errorf("a user unit must not name a user or protect the system:\n%s", user)
+	}
+
+	system, err := Unit(UnitOptions{Scope: ScopeSystem, User: "aotus", Group: "aotus", ExecPath: "/usr/local/bin/aotusd", DataDir: "/var/lib/aotus"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"User=aotus", "Group=aotus", "ExecStart=/usr/local/bin/aotusd --data-dir /var/lib/aotus\n", "WantedBy=multi-user.target", "ProtectSystem=full", "RestrictSUIDSGID=yes"} {
+		if !strings.Contains(system, want) {
+			t.Errorf("the system unit misses %q:\n%s", want, system)
+		}
+	}
+	if strings.Contains(system, "--tailnet") {
+		t.Errorf("no tailnet flags unless asked:\n%s", system)
+	}
+
+	// Spaces and specifiers in paths are quoted, not interpreted.
+	odd, err := Unit(UnitOptions{ExecPath: "/opt/my apps/aotusd", DataDir: "/data/100%/x $y"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(odd, `ExecStart="/opt/my apps/aotusd" --data-dir "/data/100%%/x $$y"`) {
+		t.Errorf("quoting:\n%s", odd)
+	}
+
+	for _, bad := range []UnitOptions{
+		{ExecPath: "aotusd", DataDir: "/d"},
+		{ExecPath: "/a", DataDir: "d"},
+		{Scope: ScopeSystem, ExecPath: "/a", DataDir: "/d"},
+		{Scope: "global", ExecPath: "/a", DataDir: "/d"},
+		{ExecPath: "/a", DataDir: "/d", Tailnet: true, Port: "99999"},
+		{ExecPath: "/a", DataDir: "/d", MemoryMax: "3G; rm -rf /"},
+	} {
+		if _, err := Unit(bad); !errors.Is(err, ErrBadUnitOption) {
+			t.Errorf("%+v must be refused, got %v", bad, err)
+		}
+	}
+}
+
+func TestSystemdUnitHasNoSecrets(t *testing.T) {
+	// A hostile value must not be able to add a line or a section.
+	for _, o := range []UnitOptions{
+		{ExecPath: "/a", DataDir: "/d\nExecStartPre=/bin/evil"},
+		{ExecPath: "/a\n[Service]", DataDir: "/d"},
+		{ExecPath: "/a", DataDir: "/d", Tailnet: true, Owner: "x@example.com\nEnvironment=TOKEN=1"},
+		{Scope: ScopeSystem, User: "root\nExecStart=/bin/sh", ExecPath: "/a", DataDir: "/d"},
+	} {
+		if text, err := Unit(o); !errors.Is(err, ErrBadUnitOption) {
+			t.Errorf("%+v must be refused, got %q, %v", o, text, err)
+		}
+	}
+	// A normal unit carries only paths and public settings.
+	text, err := Unit(UnitOptions{ExecPath: "/usr/local/bin/aotusd", DataDir: "/home/me/.aotus", Tailnet: true, Owner: "me@example.com", TailscaleSocket: "/var/run/tailscale/tailscaled.sock"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		low := strings.ToLower(line)
+		for _, forbidden := range []string{"token", "password", "secret", "apikey", "api_key", "authkey", "bearer"} {
+			if strings.Contains(low, forbidden) {
+				t.Errorf("the unit mentions %q: %s", forbidden, line)
+			}
+		}
+		if strings.HasPrefix(line, "Environment=") && !strings.HasPrefix(line, "Environment=PATH=") {
+			t.Errorf("the only environment the unit sets is PATH, got %s", line)
+		}
+	}
+
+	// Writing and removing the file.
+	dir := filepath.Join(t.TempDir(), "units")
+	path, err := WriteUnit(dir, text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != text {
+		t.Fatal("the unit file was not written as rendered")
+	}
+	if _, err := RemoveUnit(dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Fatal("the unit file must be gone")
+	}
+	if _, err := RemoveUnit(dir); err != nil {
+		t.Fatalf("removing twice must be harmless: %v", err)
+	}
+}

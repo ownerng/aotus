@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -39,12 +40,18 @@ type tailscale interface {
 
 // options are the seams the tests replace; production uses the defaults.
 type options struct {
+	runCmd        func(ctx context.Context, name string, args ...string) (string, error)
+	goos          string
+	currentUser   func() (string, error)
 	newTailscale  func(socket string) tailscale
 	listenTailnet func(ip netip.Addr, port string, id netaccess.Identifier, log *slog.Logger) (net.Listener, error)
 }
 
 func defaultOptions() options {
 	return options{
+		runCmd:        runCommand,
+		goos:          runtime.GOOS,
+		currentUser:   currentUserName,
 		newTailscale:  func(socket string) tailscale { return netaccess.NewLocalAPI(socket) },
 		listenTailnet: netaccess.ListenTailnet,
 	}
@@ -65,6 +72,10 @@ func runWith(ctx context.Context, args []string, stdout, stderr io.Writer, opts 
 	tailnet := fs.Bool("tailnet", false, "also serve the API on this machine's Tailscale address, to the people on the allow-list")
 	tsSocket := fs.String("tailscale-socket", netaccess.DefaultSocket(), "the local Tailscale's LocalAPI socket")
 	tailnetPort := fs.String("tailnet-port", "7843", "port of the tailnet listener")
+	service := fs.String("service", "", "install, uninstall or status: manage the systemd service that runs this daemon, then exit")
+	serviceScope := fs.String("service-scope", "user", "user (runs as you, no root) or system (root installs it, runs as --service-user)")
+	serviceUser := fs.String("service-user", "", "the user a system service runs as")
+	serviceDir := fs.String("service-dir", "", "directory for the unit file (default: the systemd directory of the scope)")
 	owner := fs.String("owner", "", "tailnet login of the owner of this daemon (default: the person the Tailscale node belongs to)")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -81,6 +92,12 @@ func runWith(ctx context.Context, args []string, stdout, stderr io.Writer, opts 
 	}
 	if *autostart != "" {
 		return manageAutostart(*autostart, stdout, stderr)
+	}
+	if *service != "" {
+		return manageService(ctx, opts, serviceRequest{
+			Action: *service, Scope: lifecycle.UnitScope(*serviceScope), User: *serviceUser, Dir: *serviceDir,
+			DataDir: layout.Root, Tailnet: *tailnet, Port: *tailnetPort, Owner: *owner, TailscaleSocket: tsSocketIfSet(fs, *tsSocket),
+		}, stdout, stderr)
 	}
 
 	// One daemon per data directory.

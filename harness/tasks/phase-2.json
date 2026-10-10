@@ -319,7 +319,7 @@
     "id": "P2-007",
     "phase": 2,
     "title": "Running the daemon headless on a VPS",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-004"
     ],
@@ -369,7 +369,8 @@
     "docs": [
       "docs/SECURITY.md",
       "docs/QUICKSTART.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-008",
