@@ -31,6 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 type rig struct {
+	st     *store.Store
 	layout datadir.Layout
 	broker *permissions.Broker
 	c      *client.Client
@@ -51,7 +52,7 @@ func startDaemon(t *testing.T) *rig {
 		_ = mgr.Shutdown(ctx)
 	})
 	broker := permissions.New(st)
-	srv := httptest.NewServer(api.New(api.Config{Manager: mgr, Broker: broker, Token: token, Version: "test"}))
+	srv := httptest.NewServer(api.New(api.Config{Manager: mgr, Broker: broker, Token: token, Version: "test", Store: st}))
 	t.Cleanup(srv.Close)
 	_ = os.WriteFile(l.Token(), []byte(token+"\n"), 0o600)
 	_ = lifecycle.WriteDiscovery(l, lifecycle.Discovery{PID: os.Getpid(), Address: strings.TrimPrefix(srv.URL, "http://"), StartedAt: time.Now(), Version: "test"})
@@ -59,7 +60,7 @@ func startDaemon(t *testing.T) *rig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &rig{layout: l, broker: broker, c: c}
+	return &rig{layout: l, broker: broker, c: c, st: st}
 }
 
 // cli runs the command and returns its exit code and output.

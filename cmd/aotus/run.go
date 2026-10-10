@@ -21,6 +21,22 @@ const usage = `aotus - command line client of the Aotus daemon
 
 Daemon
   status                          how the daemon is
+  whoami                          who the daemon thinks you are (login, device, role)
+
+Other computers (a daemon on a VPS, reached over Tailscale)
+  connections                     the saved connections
+  connection add NAME HOST:PORT  save one, e.g. vps vps.tail1234.ts.net:7843
+  connection rm NAME
+  connection test NAME            dial it and say who you are there
+  connection use NAME|local       the one the desktop app opens with
+  --connection NAME               (before any command) run the command against that daemon
+
+Who may call a daemon remotely (the owner only)
+  access list                     the allow-list and what is shared with each person
+  access allow LOGIN --acknowledge   allow a person; read the notice first
+  access deny LOGIN               remove a person and everything shared with them
+  access share PROFILE LOGIN      let a listed person use a subscription profile
+  access unshare PROFILE LOGIN
 
 Subscriptions (profiles)
   profiles                        list profiles
@@ -53,6 +69,8 @@ type app struct {
 	err    io.Writer
 	layout datadir.Layout
 	c      *client.Client
+	// connectionsPath is the file of saved remote connections.
+	connectionsPath string
 }
 
 type usageError struct{ msg string }
@@ -63,6 +81,8 @@ func run(ctx context.Context, args []string, in io.Reader, out, errw io.Writer) 
 	global := flag.NewFlagSet("aotus", flag.ContinueOnError)
 	global.SetOutput(io.Discard)
 	dataDir := global.String("data-dir", "", "")
+	connection := global.String("connection", "", "")
+	connectionsFile := global.String("connections-file", "", "")
 	showVersion := global.Bool("version", false, "")
 	if err := global.Parse(args); err != nil {
 		fmt.Fprint(errw, usage)
@@ -86,7 +106,20 @@ func run(ctx context.Context, args []string, in io.Reader, out, errw io.Writer) 
 		fmt.Fprintln(errw, "aotus:", err)
 		return 1
 	}
-	if a.c, err = client.Discover(ctx, a.layout); err != nil {
+	if *connectionsFile != "" {
+		a.connectionsPath = *connectionsFile
+	} else if a.connectionsPath, err = client.ConnectionsPath(); err != nil {
+		fmt.Fprintln(errw, "aotus:", err)
+		return 1
+	}
+
+	// Managing the saved connections needs no daemon.
+	if rest[0] == "connections" || rest[0] == "connection" {
+		err = a.connections(rest)
+		return finish(err, errw)
+	}
+
+	if a.c, err = client.Connect(ctx, a.layout, a.connectionsPath, *connection); err != nil {
 		if errors.Is(err, client.ErrNoDaemon) {
 			fmt.Fprintln(errw, "aotus: the daemon is not running. Start it with `aotusd` (or open the desktop app).")
 			return 1
@@ -95,7 +128,11 @@ func run(ctx context.Context, args []string, in io.Reader, out, errw io.Writer) 
 		return 1
 	}
 
-	err = a.dispatch(rest)
+	return finish(a.dispatch(rest), errw)
+}
+
+// finish turns an error into the exit code: 2 for bad usage, 1 for a failure.
+func finish(err error, errw io.Writer) int {
 	var u usageError
 	switch {
 	case err == nil:
@@ -114,6 +151,10 @@ func (a *app) dispatch(args []string) error {
 	switch cmd {
 	case "status":
 		return a.status()
+	case "whoami":
+		return a.whoami()
+	case "access":
+		return a.access(rest)
 	case "profiles":
 		return a.profiles()
 	case "profile":

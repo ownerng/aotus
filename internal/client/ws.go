@@ -26,14 +26,16 @@ type EventStream struct {
 
 func (c *Client) dial(ctx context.Context, path string) (*websocket.Conn, error) {
 	h := http.Header{}
-	h.Set("Authorization", "Bearer "+c.token)
+	if c.token != "" {
+		h.Set("Authorization", "Bearer "+c.token)
+	}
 	conn, resp, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(c.base, "http")+path, &websocket.DialOptions{HTTPHeader: h}) //nolint:bodyclose // the websocket library owns and closes the response body
 	if err != nil {
 		if resp != nil && resp.StatusCode >= 400 {
 			ae := &APIError{Status: resp.StatusCode, Code: fmt.Sprintf("http_%d", resp.StatusCode), Message: resp.Status}
 			return nil, ae
 		}
-		return nil, err
+		return nil, c.explain(err)
 	}
 	conn.SetReadLimit(32 << 20)
 	return conn, nil

@@ -43,8 +43,10 @@ func HasCode(err error, code string) bool {
 // Client talks to one daemon.
 type Client struct {
 	base  string // http://127.0.0.1:port/api/v1
-	token string
+	token string // empty on a remote connection: Tailscale identifies us
 	http  *http.Client
+	// remote is the saved connection this client dials, "" for the local daemon.
+	remote string
 }
 
 // New returns a client for a daemon at address (host:port) with a token.
@@ -82,6 +84,31 @@ func (c *Client) Address() string {
 	return strings.TrimSuffix(strings.TrimPrefix(c.base, "http://"), "/api/v1")
 }
 
+// send performs a request. A request that cannot have changed anything (a GET)
+// is tried again, briefly, when the connection breaks: a kept-alive connection
+// that died while idle, or a link that dropped for a moment.
+func (c *Client) send(req *http.Request, idempotent bool) (*http.Response, error) {
+	attempts := 1
+	if idempotent && req.Method == http.MethodGet {
+		attempts = 3
+	}
+	var err error
+	for i := 0; i < attempts; i++ {
+		var resp *http.Response
+		if resp, err = c.http.Do(req); err == nil {
+			return resp, nil
+		}
+		if req.Context().Err() != nil || i == attempts-1 {
+			break
+		}
+		select {
+		case <-req.Context().Done():
+		case <-time.After(time.Duration(i+1) * 150 * time.Millisecond):
+		}
+	}
+	return nil, c.explain(err)
+}
+
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
 	var body io.Reader
 	if in != nil {
@@ -95,11 +122,13 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.send(req, in == nil)
 	if err != nil {
 		return err
 	}
@@ -116,7 +145,7 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 		if json.Unmarshal(data, &e) == nil && e.Error.Code != "" {
 			ae.Code, ae.Message = e.Error.Code, e.Error.Message
 		}
-		return ae
+		return c.explain(ae)
 	}
 	if out != nil && len(data) > 0 {
 		return json.Unmarshal(data, out)
