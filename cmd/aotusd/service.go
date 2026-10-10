@@ -25,6 +25,7 @@ type serviceRequest struct {
 	Tailnet         bool
 	Port, Owner     string
 	TailscaleSocket string
+	MaxTurns        int
 }
 
 // tsSocketIfSet passes the Tailscale socket into the unit only when the user
@@ -125,7 +126,7 @@ func manageService(ctx context.Context, opts options, r serviceRequest, stdout, 
 			return fail("a system service needs --service-user NAME: the person whose official CLIs the employees run")
 		}
 		text, err := lifecycle.Unit(lifecycle.UnitOptions{
-			Scope: r.Scope, ExecPath: exe, DataDir: dataDir, User: runAs, Tailnet: r.Tailnet, Port: r.Port, Owner: r.Owner, TailscaleSocket: r.TailscaleSocket,
+			Scope: r.Scope, ExecPath: exe, DataDir: dataDir, User: runAs, Tailnet: r.Tailnet, Port: r.Port, Owner: r.Owner, TailscaleSocket: r.TailscaleSocket, MaxTurns: r.MaxTurns,
 		})
 		if err != nil {
 			return fail("%v", err)

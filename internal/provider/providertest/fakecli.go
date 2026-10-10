@@ -62,6 +62,12 @@ const (
 	// was written (Unix nanoseconds), so a test can measure how long it took to
 	// arrive.
 	Stamped Scenario = "stamped"
+	// Busy streams one text event every 5 ms for four seconds and completes: an
+	// employee that is working hard.
+	Busy Scenario = "busy"
+	// TermBusy is a hosted terminal program that prints a line every 20 ms until
+	// it is stopped: an interactive CLI that is busy.
+	TermBusy Scenario = "termbusy"
 	// Slow works for 300 ms and then completes.
 	Slow Scenario = "slow"
 	// Crash records that it was launched (a line appended to the file named by
@@ -252,6 +258,18 @@ func runFakeCLI(args []string) {
 			time.Sleep(10 * time.Millisecond)
 		}
 		out.done()
+	case Busy:
+		out.session(session)
+		for i := 0; i < 800; i++ {
+			out.text("x")
+			time.Sleep(5 * time.Millisecond)
+		}
+		out.done()
+	case TermBusy:
+		for i := 1; ; i++ {
+			fmt.Printf("tick %d\r\n", i)
+			time.Sleep(20 * time.Millisecond)
+		}
 	case Slow:
 		out.session(session)
 		out.text("working")

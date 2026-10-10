@@ -121,10 +121,21 @@ type runningDaemon struct {
 	ready  time.Duration
 }
 
-func startBinary(t *testing.T) *runningDaemon {
+func startBinary(t *testing.T) *runningDaemon { return startBinaryWith(t) }
+
+// startBinaryWith starts the real daemon, optionally behind a wrapper command
+// such as `taskset -c 0,1` (which execs the daemon, so the PID is the daemon's).
+func startBinaryWith(t *testing.T, wrapper ...string) *runningDaemon {
+	return startBinaryArgs(t, wrapper)
+}
+
+// startBinaryArgs is startBinaryWith with more daemon flags.
+func startBinaryArgs(t *testing.T, wrapper []string, flags ...string) *runningDaemon {
 	t.Helper()
 	l := datadir.Layout{Root: filepath.Join(t.TempDir(), "aotus")}
-	cmd := exec.CommandContext(context.Background(), daemonBinary(t), "--data-dir", l.Root)
+	argv := append(append([]string{}, wrapper...), daemonBinary(t), "--data-dir", l.Root)
+	argv = append(argv, flags...)
+	cmd := exec.CommandContext(context.Background(), argv[0], argv[1:]...)
 	start := time.Now()
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)

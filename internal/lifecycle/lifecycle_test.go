@@ -252,14 +252,14 @@ func TestDesktopExecEscaping(t *testing.T) {
 }
 
 func TestSystemdUnitText(t *testing.T) {
-	user, err := Unit(UnitOptions{ExecPath: "/home/me/bin/aotusd", DataDir: "/home/me/.aotus", Tailnet: true, Port: "7843", Owner: "me@example.com", MemoryMax: "3G"})
+	user, err := Unit(UnitOptions{ExecPath: "/home/me/bin/aotusd", DataDir: "/home/me/.aotus", Tailnet: true, Port: "7843", Owner: "me@example.com", MemoryMax: "3G", MaxTurns: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
 		"[Unit]", "[Service]", "[Install]",
 		"After=network-online.target tailscaled.service",
-		"ExecStart=/home/me/bin/aotusd --data-dir /home/me/.aotus --tailnet --tailnet-port 7843 --owner me@example.com",
+		"ExecStart=/home/me/bin/aotusd --data-dir /home/me/.aotus --max-turns 10 --tailnet --tailnet-port 7843 --owner me@example.com",
 		"Environment=PATH=%h/.local/bin:", "Restart=on-failure", "TimeoutStopSec=30", "KillMode=control-group",
 		"NoNewPrivileges=yes", "MemoryMax=3G", "WantedBy=default.target",
 	} {
@@ -300,6 +300,7 @@ func TestSystemdUnitText(t *testing.T) {
 		{Scope: "global", ExecPath: "/a", DataDir: "/d"},
 		{ExecPath: "/a", DataDir: "/d", Tailnet: true, Port: "99999"},
 		{ExecPath: "/a", DataDir: "/d", MemoryMax: "3G; rm -rf /"},
+		{ExecPath: "/a", DataDir: "/d", MaxTurns: -1},
 	} {
 		if _, err := Unit(bad); !errors.Is(err, ErrBadUnitOption) {
 			t.Errorf("%+v must be refused, got %v", bad, err)

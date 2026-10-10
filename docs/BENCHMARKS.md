@@ -51,3 +51,43 @@ Measured on 2026-10-09 on the same machine, with the window connected to a **rem
 
 The window costs about 9 MB more than against the local daemon (the connection state and the extra screen), nothing that depends on the network. What changes with a real tailnet is latency, which the stream-latency budget (N3) covers on the daemon side and which Tailscale adds to.
 
+## N5: ten employees on a small server
+
+Requirement N5: ten employees working at the same time on a 2 vCPU / 4 GB server must not degrade the interface.
+
+### What the test measures (`TestTenParallelEmployeesStayResponsive`)
+
+The real `aotusd` binary runs as its own process, limited to **two CPUs with `taskset -c 0,1` where the system allows it** (the limit is inherited by everything the daemon starts, so the employees' programs share those two CPUs too). Ten employees work against it, all scripted so that the model's time is out of the picture:
+
+- four **structured** employees, each running one busy turn after another (a text event every 5 ms);
+- one **probe** employee that streams a time-stamped answer four times;
+- five **terminal** employees hosting an interactive program that prints a line every 20 ms, each watched by a client, as a window would.
+
+While they all work, a client does what a window does all the time (`GET /status` and `GET /employees` every 50 ms) and the test checks, with the bounds below. A bound that real use shows to be wrong is changed here with the evidence, not quietly in the test.
+
+| Measure | Bound | Measured (3 runs, linux/amd64, 8-core desktop limited to 2 CPUs) |
+| --- | --- | --- |
+| Interface: `GET status` + `GET employees` while all ten work | p95 under 100 ms, max under 500 ms | p95 2.4 to 2.7 ms, max 3.2 to 9.4 ms |
+| Start of a turn (from `Send` to the turn being started) | max under 500 ms | max 12.7 to 26.3 ms over 12 turns |
+| Stream latency under load (N3 must still hold) | p95 under 100 ms | p95 1.1 ms over 400 events |
+| Daemon memory under load | under 100 MB (N4) | 20.3 to 21.3 MB |
+| Daemon CPU under load | (reported) | about 40% of one CPU |
+| Memory of the ten scripted employees' programs | (reported) | about 92 MB more (the fake CLI is the Go test binary; real CLIs weigh far more) |
+
+### What this does not tell you
+
+- **The real CLIs are not in it.** Claude Code and Codex CLI are Node and Rust programs that use hundreds of megabytes each when they work. Ten of them busy at once will use more memory than a 4 GB server has. What the test proves is that **the daemon adds almost nothing**: the interface does not slow down, and nothing the daemon does grows with the number of employees.
+- **The default is four turns at once.** `aotusd --max-turns N` (default 4) is how many employees' *turns* run at the same time; more wait in line, in the order they were sent. Terminal programs are not limited, because they are long-lived sessions. The test runs with `--max-turns 10`. With the default, a fifth simultaneous turn waits for one of the first four to end (found by this test: turns started up to 1 s late when five employees worked with a limit of four). Raise it to what the server's memory allows once you know how much one of your CLIs uses (`aotusd --service install --max-turns 6`, or edit the unit).
+- Latency over a real tailnet is Tailscale's, not the daemon's.
+
+### On a real VPS (procedure; waiting for results)
+
+1. A 2 vCPU / 4 GB server set up as in `docs/VPS.md`, with the daemon as a service and `--max-turns` at the value you want to test.
+2. The scripted test, on the server itself (needs Go): `go test -count=1 -v -run TestTenParallel ./internal/bench`. Expected: the same bounds.
+3. With the real CLIs: link your subscription, create ten employees (five structured, five terminals), give each a real task, and while they work:
+   - from your PC: `aotus --connection vps status` repeatedly (or watch the window): the answers should stay quick;
+   - on the server: `ps -eo rss,comm --sort=-rss | head -20` for each CLI's memory, `free -m` for the total, and `systemctl --user show aotusd -p MemoryCurrent -p CPUUsageNSec`.
+4. Write down: the CLI versions, the tasks, the number of employees working at once, the memory at its highest, and whether the window felt slow. Add it below.
+
+**Result of a real VPS run:** not run yet. This is the part of N5 that still needs a server.
+

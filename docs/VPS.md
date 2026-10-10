@@ -100,6 +100,8 @@ journalctl --user -u aotusd -f          # the log; it never contains secrets
 aotusd --service uninstall              # removes the service, keeps your data
 ```
 
+`aotusd` runs up to **four employees' turns at once** and queues the rest (terminal programs are not counted). Each official CLI at work can use a few hundred MB, so on a small server keep it low; raise it when you know how much yours uses: `aotusd --service install --max-turns 6 --tailnet ...`. `docs/BENCHMARKS.md` (N5) has the numbers and the procedure to measure your own.
+
 The unit restarts the daemon if it crashes (after 5 s), gives it 30 s to stop its employees cleanly, and then ends anything left in its control group. It sets `NoNewPrivileges`, so an employee cannot gain privileges with `sudo` or a setuid program. To limit memory for the daemon and everything it starts, install with `--service` and edit the unit (`MemoryMax=3G`) or install it as a system unit, below.
 
 ### As a system service instead

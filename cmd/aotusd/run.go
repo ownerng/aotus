@@ -76,6 +76,7 @@ func runWith(ctx context.Context, args []string, stdout, stderr io.Writer, opts 
 	serviceScope := fs.String("service-scope", "user", "user (runs as you, no root) or system (root installs it, runs as --service-user)")
 	serviceUser := fs.String("service-user", "", "the user a system service runs as")
 	serviceDir := fs.String("service-dir", "", "directory for the unit file (default: the systemd directory of the scope)")
+	maxTurns := fs.Int("max-turns", 0, "how many employees' turns may run at once (default 4); more wait in line. Terminal programs are not limited")
 	owner := fs.String("owner", "", "tailnet login of the owner of this daemon (default: the person the Tailscale node belongs to)")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -96,7 +97,7 @@ func runWith(ctx context.Context, args []string, stdout, stderr io.Writer, opts 
 	if *service != "" {
 		return manageService(ctx, opts, serviceRequest{
 			Action: *service, Scope: lifecycle.UnitScope(*serviceScope), User: *serviceUser, Dir: *serviceDir,
-			DataDir: layout.Root, Tailnet: *tailnet, Port: *tailnetPort, Owner: *owner, TailscaleSocket: tsSocketIfSet(fs, *tsSocket),
+			DataDir: layout.Root, Tailnet: *tailnet, Port: *tailnetPort, Owner: *owner, TailscaleSocket: tsSocketIfSet(fs, *tsSocket), MaxTurns: *maxTurns,
 		}, stdout, stderr)
 	}
 
@@ -132,7 +133,7 @@ func runWith(ctx context.Context, args []string, stdout, stderr io.Writer, opts 
 		provider.KindClaude: provider.Claude{},
 		provider.KindCodex:  provider.Codex{},
 		provider.KindOpenAI: provider.OpenAICompat{Keys: creds.Get},
-	}, orchestrator.Options{Keys: creds})
+	}, orchestrator.Options{Keys: creds, MaxConcurrentTurns: *maxTurns})
 	rec, err := mgr.Start(ctx)
 	if err != nil {
 		fmt.Fprintln(stderr, "aotusd:", err)

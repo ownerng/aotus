@@ -376,7 +376,7 @@
     "id": "P2-008",
     "phase": 2,
     "title": "Ten employees at once on a small server (N5)",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-004"
     ],
@@ -413,7 +413,8 @@
     ],
     "docs": [
       "docs/PRD.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-009",

@@ -47,6 +47,8 @@ type UnitOptions struct {
 	// MemoryMax is a systemd memory limit for the daemon and everything it
 	// starts, for example "3G". Empty means none.
 	MemoryMax string
+	// MaxTurns is --max-turns; 0 leaves the daemon's default.
+	MaxTurns int
 }
 
 // ErrBadUnitOption means a value could not be written into a unit safely.
@@ -105,7 +107,13 @@ func Unit(o UnitOptions) (string, error) {
 		return "", fmt.Errorf("%w: memory limit %q", ErrBadUnitOption, o.MemoryMax)
 	}
 
+	if o.MaxTurns < 0 || o.MaxTurns > 1000 {
+		return "", fmt.Errorf("%w: max turns %d", ErrBadUnitOption, o.MaxTurns)
+	}
 	args := []string{systemdQuote(o.ExecPath), "--data-dir", systemdQuote(o.DataDir)}
+	if o.MaxTurns > 0 {
+		args = append(args, "--max-turns", strconv.Itoa(o.MaxTurns))
+	}
 	if o.Tailnet {
 		args = append(args, "--tailnet")
 		if o.Port != "" {
