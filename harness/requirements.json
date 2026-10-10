@@ -1,42 +1,212 @@
 [
-  { "id": "L1", "title": "Provider terms of use verified before building on them", "phase": 0, "kind": "nonfunctional" },
-  { "id": "R1", "title": "Project name and license decided", "phase": 0, "kind": "nonfunctional" },
-
-  { "id": "F1", "title": "Link one or more subscriptions per provider as profiles, each using the provider's official CLI with its own isolated configuration directory, detecting login status without reading credentials", "phase": 1, "kind": "functional" },
-  { "id": "F2", "title": "Create an employee with name, role, system prompt, profile, workspace folder and permissions", "phase": 1, "kind": "functional" },
-  { "id": "F3", "title": "Per-employee chat with streaming, history and immediate cancellation", "phase": 1, "kind": "functional" },
-  { "id": "F4", "title": "Sensitive actions ask for approval, with a remember option per employee", "phase": 1, "kind": "functional" },
-  { "id": "F5", "title": "Persistent memory per employee in SQLite plus Markdown notes, searchable", "phase": 1, "kind": "functional" },
-  { "id": "F6", "title": "Each employee runs as an independent supervised CLI process in the background; several run in parallel and keep running when the window is closed", "phase": 1, "kind": "functional" },
-  { "id": "F16", "title": "Desktop app for Windows, macOS and Linux: employee list, chat, approvals, profiles and tray", "phase": 1, "kind": "functional" },
-  { "id": "F17", "title": "Daemon lifecycle on a personal PC: single instance, started on demand or at login, discoverable by clients, graceful shutdown", "phase": 1, "kind": "functional" },
-
-  { "id": "S1", "title": "The daemon listens only on loopback and authenticates every request; it refuses a public interface", "phase": 1, "kind": "nonfunctional" },
-  { "id": "S2", "title": "Only official CLIs and APIs, launched unmodified; never read, copy or forward subscription credentials; never rotate or pool profiles automatically", "phase": 1, "kind": "nonfunctional" },
-  { "id": "S3", "title": "Each employee works in its own workspace folder with a scrubbed environment and a supervised process tree", "phase": 1, "kind": "nonfunctional" },
-
-  { "id": "N1", "title": "Daemon startup to ready in under 1 s", "phase": 1, "kind": "nonfunctional" },
-  { "id": "N2", "title": "Daemon adds under 50 ms to a turn, subscription time excluded", "phase": 1, "kind": "nonfunctional" },
-  { "id": "N3", "title": "Streamed output reaches the client within 100 ms of the CLI emitting it", "phase": 1, "kind": "nonfunctional" },
-  { "id": "N4", "title": "Daemon idle memory under 100 MB", "phase": 1, "kind": "nonfunctional" },
-  { "id": "N6", "title": "Daemon binary under 50 MB", "phase": 1, "kind": "nonfunctional" },
-  { "id": "N7", "title": "Resuming a paused employee in under 1 s", "phase": 1, "kind": "nonfunctional" },
-  { "id": "N8", "title": "Windows 10/11, macOS (Intel, Apple Silicon) and Linux built and tested in CI; the daemon also built for Linux ARM64", "phase": 1, "kind": "nonfunctional" },
-
-  { "id": "F18", "title": "Run the daemon on a VPS and connect the desktop app to it over Tailscale", "phase": 2, "kind": "functional" },
-  { "id": "S4", "title": "Remote access only through the tailnet with Tailscale identity and an allow-list of users", "phase": 2, "kind": "nonfunctional" },
-  { "id": "N5", "title": "10 parallel employees on a 2 vCPU, 4 GB VPS without degrading the interface", "phase": 2, "kind": "nonfunctional" },
-
-  { "id": "F7", "title": "Shared threads where an employee delegates work to another", "phase": 3, "kind": "functional" },
-  { "id": "F8", "title": "Scheduled tasks and triggers (cron, file changes, webhooks)", "phase": 3, "kind": "functional" },
-  { "id": "F9", "title": "Browser per employee with an isolated profile", "phase": 3, "kind": "functional" },
-  { "id": "F10", "title": "Skills as Markdown files with declared permissions, signed and reviewable", "phase": 3, "kind": "functional" },
-  { "id": "F11", "title": "Change an employee's profile or provider without losing its memory", "phase": 3, "kind": "functional" },
-  { "id": "S5", "title": "OS-level sandbox per employee (containers where available)", "phase": 3, "kind": "nonfunctional" },
-
-  { "id": "F12", "title": "Learn a workflow by recording browser actions and the DOM, and turn it into a skill", "phase": 4, "kind": "functional" },
-  { "id": "F13", "title": "Cost and usage panel per employee against each subscription's limits", "phase": 4, "kind": "functional" },
-  { "id": "F14", "title": "Notifications when an employee finishes or needs approval", "phase": 4, "kind": "functional" },
-
-  { "id": "F15", "title": "Multi-user, roles and shared memory", "phase": 5, "kind": "functional" }
+  {
+    "id": "L1",
+    "title": "Provider terms of use verified before building on them",
+    "phase": 0,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "R1",
+    "title": "Project name and license decided",
+    "phase": 0,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "F1",
+    "title": "Link one or more subscriptions per provider as profiles, each using the provider's official CLI with its own isolated configuration directory, detecting login status without reading credentials",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F2",
+    "title": "Create an employee with name, role, system prompt, profile, workspace folder and permissions",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F3",
+    "title": "Per-employee chat with streaming, history and immediate cancellation",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F4",
+    "title": "Sensitive actions ask for approval, with a remember option per employee",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F5",
+    "title": "Persistent memory per employee in SQLite plus Markdown notes, searchable",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F6",
+    "title": "Each employee runs as an independent supervised CLI process in the background; several run in parallel and keep running when the window is closed",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F16",
+    "title": "Desktop app for Windows, macOS and Linux: employee list, chat, approvals, profiles and tray",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "F17",
+    "title": "Daemon lifecycle on a personal PC: single instance, started on demand or at login, discoverable by clients, graceful shutdown",
+    "phase": 1,
+    "kind": "functional"
+  },
+  {
+    "id": "S1",
+    "title": "The daemon listens only on loopback and authenticates every request; it refuses a public interface",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "S2",
+    "title": "Only official CLIs and APIs, launched unmodified; never read, copy or forward subscription credentials; never rotate or pool profiles automatically",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "S3",
+    "title": "Each employee works in its own workspace folder with a scrubbed environment and a supervised process tree",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N1",
+    "title": "Daemon startup to ready in under 1 s",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N2",
+    "title": "Daemon adds under 50 ms to a turn, subscription time excluded",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N3",
+    "title": "Streamed output reaches the client within 100 ms of the CLI emitting it",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N4",
+    "title": "Daemon idle memory under 100 MB",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N6",
+    "title": "Daemon binary under 50 MB",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N7",
+    "title": "Resuming a paused employee in under 1 s",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N8",
+    "title": "Windows 10/11, macOS (Intel, Apple Silicon) and Linux built and tested in CI; the daemon also built for Linux ARM64",
+    "phase": 1,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "F18",
+    "title": "Run the daemon on a VPS and connect the desktop app to it over Tailscale",
+    "phase": 2,
+    "kind": "functional"
+  },
+  {
+    "id": "S4",
+    "title": "Remote access only through the tailnet with Tailscale identity and an allow-list of users",
+    "phase": 2,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "N5",
+    "title": "10 parallel employees on a 2 vCPU, 4 GB VPS without degrading the interface",
+    "phase": 2,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "F7",
+    "title": "Shared threads where an employee delegates work to another",
+    "phase": 3,
+    "kind": "functional"
+  },
+  {
+    "id": "F8",
+    "title": "Scheduled tasks and triggers (cron, file changes, webhooks)",
+    "phase": 3,
+    "kind": "functional"
+  },
+  {
+    "id": "F9",
+    "title": "Browser per employee with an isolated profile",
+    "phase": 3,
+    "kind": "functional"
+  },
+  {
+    "id": "F10",
+    "title": "Skills as Markdown files with declared permissions, signed and reviewable",
+    "phase": 3,
+    "kind": "functional"
+  },
+  {
+    "id": "F11",
+    "title": "Change an employee's profile or provider without losing its memory",
+    "phase": 3,
+    "kind": "functional"
+  },
+  {
+    "id": "S5",
+    "title": "OS-level sandbox per employee (containers where available)",
+    "phase": 3,
+    "kind": "nonfunctional"
+  },
+  {
+    "id": "F12",
+    "title": "Learn a workflow by recording browser actions and the DOM, and turn it into a skill",
+    "phase": 4,
+    "kind": "functional"
+  },
+  {
+    "id": "F13",
+    "title": "Cost and usage panel per employee against each subscription's limits",
+    "phase": 4,
+    "kind": "functional"
+  },
+  {
+    "id": "F14",
+    "title": "Notifications when an employee finishes or needs approval",
+    "phase": 4,
+    "kind": "functional"
+  },
+  {
+    "id": "F15",
+    "title": "Multi-user, roles and shared memory",
+    "phase": 5,
+    "kind": "functional"
+  },
+  {
+    "id": "F19",
+    "title": "The desktop app manages several connections (this computer and VPS daemons) and works the same against each",
+    "phase": 2,
+    "kind": "functional"
+  },
+  {
+    "id": "S6",
+    "title": "Remote callers are identified, audited, and never allowed to share one person's provider subscription without an explicit, stored acknowledgement",
+    "phase": 2,
+    "kind": "nonfunctional"
+  }
 ]

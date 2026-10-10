@@ -52,8 +52,38 @@
     "id": 2,
     "name": "Remote access",
     "goal": "The same daemon runs on a VPS and the desktop app connects to it over Tailscale (tsnet) with Tailscale identity.",
-    "planned": false,
-    "gate": []
+    "planned": true,
+    "gate": [
+      "Every F18, F19, S4, S6 and N5 requirement is covered by passing tests",
+      "The daemon is reachable only through loopback or the tailnet, and only identified, allow-listed callers are served",
+      "The desktop app works against a daemon on a VPS over Tailscale (owner's tailnet run recorded in docs/research/tailnet-spike.md or docs/VPS.md)",
+      "docs/BENCHMARKS.md records N5",
+      "docs/VPS.md takes a reader from a blank server to a working employee"
+    ],
+    "gate_checks": [
+      {
+        "name": "vps guide",
+        "file": "docs/VPS.md",
+        "contains": [
+          "Tailscale",
+          "allow-list"
+        ]
+      },
+      {
+        "name": "n5 recorded",
+        "file": "docs/BENCHMARKS.md",
+        "contains": [
+          "N5"
+        ]
+      },
+      {
+        "name": "threat model",
+        "file": "docs/SECURITY.md",
+        "contains": [
+          "Remote access threat model"
+        ]
+      }
+    ]
   },
   {
     "id": 3,

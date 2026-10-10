@@ -1,0 +1,519 @@
+[
+  {
+    "id": "P2-001",
+    "phase": 2,
+    "title": "Spike: how the daemon joins the tailnet (tsnet or the system Tailscale)",
+    "status": "todo",
+    "depends_on": [],
+    "requirements": [
+      "S4",
+      "F18"
+    ],
+    "description": "Decide, with measurements, how the daemon is reachable on the tailnet and how it learns who is calling. Option A: embed tailscale.com/tsnet (the daemon is its own tailnet node, with its own state and an auth key). Option B: use the Tailscale already installed on the machine: bind to the node's tailnet address and ask the local Tailscale daemon who a peer is (LocalAPI WhoIs). Measure for each: binary size against N6 (50 MB), idle memory against N4 (100 MB), startup, licence and size of the new dependencies, what the user has to install and do, how the desktop app on the other side connects (also embedded, or through the Tailscale on that PC), and how identity (login name, node) reaches the API. The real tailnet test needs an account and an auth key: write a throwaway program for it, list exactly what the owner must run, and do not block the offline measurements on it. Write an ADR with the decision; if tsnet pushes the daemon over a budget, consider a build tag or a separate binary rather than loosening the budget (see the harness rules).",
+    "acceptance": [
+      "docs/research/tailnet-spike.md has the measurements of both options and the commands to reproduce them",
+      "An ADR (0014) records the decision, the dependency (what, why, licence, size, alternatives) and the effect on the budgets N4 and N6",
+      "The ADR says how the daemon gets the caller's identity and how the desktop app reaches the daemon",
+      "What still needs the owner's tailnet is listed as a short checklist"
+    ],
+    "checks": [
+      {
+        "name": "spike document",
+        "file": "docs/research/tailnet-spike.md",
+        "contains": [
+          "tsnet",
+          "LocalAPI",
+          "binary size",
+          "idle memory",
+          "identity",
+          "auth key"
+        ]
+      },
+      {
+        "name": "decision record",
+        "file": "docs/DECISIONS/0014-tailnet-access.md",
+        "contains": [
+          "Decision",
+          "Consequences",
+          "S4"
+        ]
+      }
+    ],
+    "paths": [
+      "docs/research/tailnet-spike.md",
+      "docs/DECISIONS/0014-tailnet-access.md"
+    ],
+    "docs": [
+      "docs/DECISIONS/0009-scope-personal-pc-first.md",
+      "docs/SECURITY.md",
+      "docs/ARCHITECTURE.md"
+    ]
+  },
+  {
+    "id": "P2-002",
+    "phase": 2,
+    "title": "Listeners and caller identity in netaccess",
+    "status": "todo",
+    "depends_on": [
+      "P2-001"
+    ],
+    "requirements": [
+      "S4",
+      "S1"
+    ],
+    "description": "Generalize internal/netaccess from 'loopback only' to a small set of listener kinds chosen by configuration: loopback (default, as today) and tailnet (as decided in ADR 0014). Every accepted connection carries a Caller: how it was authenticated (local token or tailnet identity), the login name and the device. Loopback keeps its token; the tailnet listener never accepts a caller it cannot identify. Wildcard and public addresses stay impossible to configure: there is no option that listens on 0.0.0.0, and a test proves it. The identity source is an interface with a fake for tests, so everything above this task is testable without a tailnet.",
+    "acceptance": [
+      "Config selects loopback or tailnet; the default is unchanged",
+      "A Caller type reaches the HTTP handlers through the request context",
+      "No configuration can bind a wildcard or public address (test)",
+      "A fake identity source exists for tests"
+    ],
+    "checks": [
+      {
+        "name": "netaccess tests",
+        "pkg": "./internal/netaccess",
+        "tests": [
+          "TestDefaultsToLoopback",
+          "TestNoOptionListensOnAWildcard",
+          "TestTailnetListenerRefusesUnidentifiedPeer",
+          "TestCallerReachesHandlers"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/netaccess/",
+      "harness/architecture.json"
+    ],
+    "docs": [
+      "docs/DECISIONS/0014-tailnet-access.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P2-003",
+    "phase": 2,
+    "title": "API: remote authentication, allow-list and audit of who did what",
+    "status": "todo",
+    "depends_on": [
+      "P2-002"
+    ],
+    "requirements": [
+      "S4",
+      "S6"
+    ],
+    "description": "Make the API accept a tailnet caller instead of the bearer token, and nothing else. The Host check learns the daemon's tailnet names; Origin rules stay closed. An allow-list of tailnet logins (stored by the daemon, default: only the owner's own login recorded when the daemon is set up) decides who may call; everyone else gets 403 and the attempt is audited. Every audit row and approval answer records the caller. Because sharing one subscription between people breaks the providers' terms (docs/research/provider-terms.md) and the project's rule S2, adding a login that is not the owner's requires an explicit acknowledgement that is stored and shown, and the daemon refuses to start terminals or turns for a second person's login on a profile unless the owner confirmed it for that profile. Update docs/API.md.",
+    "acceptance": [
+      "A tailnet caller on the allow-list can use the API; one off the list gets 403 and an audit row",
+      "The loopback token path is unchanged and a tailnet caller cannot use it, nor the reverse",
+      "Audit rows and approval answers carry the caller",
+      "Adding someone else's login needs a stored acknowledgement about sharing a subscription (S6)",
+      "Host and Origin checks still refuse DNS rebinding and browser pages"
+    ],
+    "checks": [
+      {
+        "name": "api remote tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestTailnetCallerOnAllowListIsServed",
+          "TestTailnetCallerOffAllowListIsRefusedAndAudited",
+          "TestTokenAndIdentityDoNotCrossOver",
+          "TestAuditRecordsTheCaller",
+          "TestSecondPersonNeedsAcknowledgement",
+          "TestRebindingAndOriginStillRefusedOnTailnet"
+        ]
+      },
+      {
+        "name": "store tests",
+        "pkg": "./internal/store",
+        "tests": [
+          "TestAccessListPersists",
+          "TestAuditRowCarriesCaller"
+        ]
+      },
+      {
+        "name": "api docs",
+        "file": "docs/API.md",
+        "contains": [
+          "allow-list",
+          "Tailscale identity"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/api/",
+      "internal/store/",
+      "docs/API.md"
+    ],
+    "docs": [
+      "docs/SECURITY.md",
+      "docs/research/provider-terms.md"
+    ]
+  },
+  {
+    "id": "P2-004",
+    "phase": 2,
+    "title": "Tailnet listener in the daemon",
+    "status": "todo",
+    "depends_on": [
+      "P2-002",
+      "P2-003"
+    ],
+    "requirements": [
+      "F18",
+      "S4"
+    ],
+    "description": "Implement the tailnet listener the ADR chose and wire it into cmd/aotusd: a flag and a config entry to enable it, a hostname for the node, state kept in the data directory with owner-only permissions, the auth key read from the environment or the OS credential store (never stored in the database, logs, events or the discovery file, and never printed). The discovery file records the tailnet name next to the loopback address. The loopback listener keeps running for the local aotus CLI. Starting and stopping must be clean, and a failure to join the tailnet is a clear error that does not take the loopback listener down.",
+    "acceptance": [
+      "aotusd --tailnet serves the API on the tailnet and on loopback",
+      "The auth key is never written to logs, events, the database or the discovery file (test)",
+      "A failure to join the tailnet leaves the loopback listener working and says why",
+      "Shutdown closes both listeners"
+    ],
+    "checks": [
+      {
+        "name": "daemon tests",
+        "pkg": "./cmd/aotusd",
+        "tests": [
+          "TestTailnetFlagStartsBothListeners",
+          "TestAuthKeyNeverLeaks",
+          "TestTailnetFailureKeepsLoopback"
+        ]
+      },
+      {
+        "name": "netaccess tests",
+        "pkg": "./internal/netaccess",
+        "tests": [
+          "TestTailnetStateIsOwnerOnly"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotusd/",
+      "internal/netaccess/",
+      "internal/lifecycle/"
+    ],
+    "docs": [
+      "docs/DECISIONS/0014-tailnet-access.md",
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P2-005",
+    "phase": 2,
+    "title": "Go client and CLI for a remote daemon",
+    "status": "todo",
+    "depends_on": [
+      "P2-003"
+    ],
+    "requirements": [
+      "F18",
+      "F19"
+    ],
+    "description": "Teach internal/client to connect to a daemon that is not on this computer: a Connection (name, address, how to authenticate) in a small config file in the user's config directory, Discover for the local one and Dial for a saved one, with the identity handled as the ADR decided and no token in the file. Reconnect with back-off, clear errors for 'not on the allow-list', 'daemon unreachable' and 'tailnet not running'. The aotus CLI gets --connection NAME and 'aotus connections' (add, list, remove, test) and 'aotus access' (allow, deny, list) for the owner to manage the allow-list. All of this is exercised against the real API with the fake identity source, so no tailnet is needed in the tests.",
+    "acceptance": [
+      "internal/client can dial a saved connection and survive a dropped link",
+      "The aotus CLI can add, list, test and remove connections and manage the allow-list",
+      "Errors tell the user what to do for each of the three failure kinds",
+      "No secret is stored in the connections file"
+    ],
+    "checks": [
+      {
+        "name": "client tests",
+        "pkg": "./internal/client",
+        "tests": [
+          "TestDialSavedConnection",
+          "TestReconnectsAfterDroppedLink",
+          "TestRemoteErrorsAreActionable",
+          "TestConnectionsFileHasNoSecrets"
+        ]
+      },
+      {
+        "name": "cli tests",
+        "pkg": "./cmd/aotus",
+        "tests": [
+          "TestConnectionsCommands",
+          "TestAccessCommands"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/client/",
+      "cmd/aotus/"
+    ],
+    "docs": [
+      "docs/API.md",
+      "docs/DECISIONS/0014-tailnet-access.md"
+    ]
+  },
+  {
+    "id": "P2-006",
+    "phase": 2,
+    "title": "Desktop: connections, and working against a daemon on a VPS",
+    "status": "todo",
+    "depends_on": [
+      "P2-005"
+    ],
+    "requirements": [
+      "F18",
+      "F19"
+    ],
+    "description": "The desktop app can work against this PC or a saved remote connection. A Connections screen lists them (this computer, each VPS) with status, lets the user add one by name or tailnet address, test it, switch the active one and remove it. When the active connection is remote the app never starts a local daemon; the header says where it is connected; terminals, chat, approvals and history work exactly the same through the Backend; the login terminal of a profile on the VPS works (the CLI's login happens on the VPS, in the profile's own folder). Loss of the link is shown and recovered without losing the chat on screen. Keep the memory discipline of phase 1 and add one row to docs/BENCHMARKS.md for the window connected to a remote daemon.",
+    "acceptance": [
+      "Connections screen with add, test, switch, remove",
+      "With a remote active the app does not start a local daemon (test)",
+      "Chat, terminal, approvals and the login terminal work through a remote connection (test with the fake identity)",
+      "A dropped link is shown and recovered; the chat is kept",
+      "docs/BENCHMARKS.md records the memory of the window on a remote connection"
+    ],
+    "checks": [
+      {
+        "name": "desktop tests",
+        "pkg": "./cmd/aotus-desktop",
+        "tests": [
+          "TestRemoteActiveNeverStartsLocalDaemon",
+          "TestSwitchingConnectionsReloadsEverything",
+          "TestStreamsChatFromRemoteDaemon",
+          "TestDroppedLinkIsShownAndRecovered"
+        ],
+        "tags": [
+          "desktop",
+          "gtk3"
+        ]
+      },
+      {
+        "name": "desktop builds",
+        "cmd": [
+          "go",
+          "build",
+          "-tags",
+          "desktop,gtk3",
+          "./cmd/aotus-desktop"
+        ]
+      },
+      {
+        "name": "remote memory recorded",
+        "file": "docs/BENCHMARKS.md",
+        "contains": [
+          "Remote connection"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/",
+      "docs/BENCHMARKS.md"
+    ],
+    "docs": [
+      "docs/DECISIONS/0010-desktop-stack.md",
+      "docs/ARCHITECTURE.md"
+    ]
+  },
+  {
+    "id": "P2-007",
+    "phase": 2,
+    "title": "Running the daemon headless on a VPS",
+    "status": "todo",
+    "depends_on": [
+      "P2-004"
+    ],
+    "requirements": [
+      "F18"
+    ],
+    "description": "Make the daemon a good citizen of a server with no desktop session: a systemd unit (user or system) installed by 'aotusd --service install' (and removed by 'uninstall'), restarting on failure and starting at boot without anyone logged in; the data directory and workspaces configurable by flag; sensible resource limits in the unit; logs to the journal in a form that never contains secrets. Write docs/VPS.md: from a blank Linux server to a working employee, including installing Tailscale and the official CLIs, signing the CLIs in from the desktop app's login terminal (nothing is ever copied from the user's PC), joining the tailnet, the allow-list, updating, backups of the data directory, and what is NOT protected (a compromised VPS exposes the logins stored on it). Other init systems and Windows/macOS servers are out of scope and stated as such.",
+    "acceptance": [
+      "aotusd --service install writes a working unit and uninstall removes it (test on the generated text, manual run recorded)",
+      "The daemon starts at boot with no desktop session and restarts after a crash",
+      "docs/VPS.md takes a reader from a blank server to a working employee and lists the risks honestly"
+    ],
+    "checks": [
+      {
+        "name": "lifecycle tests",
+        "pkg": "./internal/lifecycle",
+        "tests": [
+          "TestSystemdUnitText",
+          "TestSystemdUnitHasNoSecrets"
+        ]
+      },
+      {
+        "name": "daemon tests",
+        "pkg": "./cmd/aotusd",
+        "tests": [
+          "TestServiceInstallAndUninstallFlags"
+        ]
+      },
+      {
+        "name": "vps guide",
+        "file": "docs/VPS.md",
+        "contains": [
+          "systemd",
+          "Tailscale",
+          "allow-list",
+          "login terminal",
+          "backup",
+          "compromised"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/lifecycle/",
+      "cmd/aotusd/",
+      "docs/VPS.md"
+    ],
+    "docs": [
+      "docs/SECURITY.md",
+      "docs/QUICKSTART.md"
+    ]
+  },
+  {
+    "id": "P2-008",
+    "phase": 2,
+    "title": "Ten employees at once on a small server (N5)",
+    "status": "todo",
+    "depends_on": [
+      "P2-004"
+    ],
+    "requirements": [
+      "N5"
+    ],
+    "description": "Turn N5 into measurements. A benchmark in internal/bench runs ten employees working in parallel (scripted fake CLIs, mixed structured turns and hosted terminals) while a client streams, with the Go runtime limited to two CPUs, and checks that the API stays responsive (status and a new turn start within a stated bound), that streaming latency stays within N3, and that the daemon's memory stays within a stated bound. A documented procedure runs the same on a real 2 vCPU / 4 GB VPS with the real CLIs idle and busy, and the owner's results go into docs/BENCHMARKS.md. If the bound is unrealistic, change the requirement with the evidence rather than the test.",
+    "acceptance": [
+      "Bench test for ten parallel employees on two CPUs passes with stated bounds",
+      "docs/BENCHMARKS.md has the N5 section with the bounds, the local result and the procedure for a real VPS",
+      "The result of a real VPS run is recorded, or the task says it is waiting for one"
+    ],
+    "checks": [
+      {
+        "name": "n5 bench",
+        "pkg": "./internal/bench",
+        "tests": [
+          "TestTenParallelEmployeesStayResponsive"
+        ]
+      },
+      {
+        "name": "n5 doc",
+        "file": "docs/BENCHMARKS.md",
+        "contains": [
+          "N5",
+          "ten employees",
+          "real VPS"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/bench/",
+      "docs/BENCHMARKS.md"
+    ],
+    "docs": [
+      "docs/PRD.md"
+    ]
+  },
+  {
+    "id": "P2-009",
+    "phase": 2,
+    "title": "Remote security review and threat model",
+    "status": "todo",
+    "depends_on": [
+      "P2-003",
+      "P2-004"
+    ],
+    "requirements": [
+      "S4",
+      "S6",
+      "S1"
+    ],
+    "description": "Before the phase closes, attack what phase 2 added. Write the threat model of remote access in docs/SECURITY.md (who can reach what, what a stolen tailnet device, a stolen allow-listed login, a compromised VPS, a malicious tailnet peer and a web page in the user's browser can do) and add tests for each defense that has none yet: a peer not on the tailnet never reaches the handlers, forged identity headers are ignored (identity only comes from the listener, never from a header), the Host and Origin rules, rate limiting of failed attempts per caller, the loopback token not accepted on the tailnet listener, and secrets never in logs or events with the tailnet enabled. Run govulncheck and fix findings. Record anything accepted as a risk, with the reason.",
+    "acceptance": [
+      "docs/SECURITY.md has the remote threat model and the accepted risks",
+      "Every defense named above has a test",
+      "Identity can never come from a request header (test)",
+      "Failed attempts are rate limited per caller (test)"
+    ],
+    "checks": [
+      {
+        "name": "security tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestIdentityHeadersAreIgnored",
+          "TestFailedAttemptsAreRateLimited",
+          "TestTokenNotAcceptedOnTailnetListener",
+          "TestNoSecretsInLogsWithTailnetEnabled"
+        ]
+      },
+      {
+        "name": "threat model",
+        "file": "docs/SECURITY.md",
+        "contains": [
+          "Remote access threat model",
+          "stolen",
+          "compromised VPS",
+          "Accepted risks"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/api/",
+      "docs/SECURITY.md"
+    ],
+    "docs": [
+      "docs/SECURITY.md"
+    ]
+  },
+  {
+    "id": "P2-010",
+    "phase": 2,
+    "title": "Packaging, quickstart and API docs for remote use",
+    "status": "todo",
+    "depends_on": [
+      "P2-006",
+      "P2-007",
+      "P2-008",
+      "P2-009"
+    ],
+    "requirements": [
+      "F18",
+      "F19"
+    ],
+    "description": "Close the documentation and the delivery: docs/QUICKSTART.md gets a remote section that points at docs/VPS.md; docs/API.md and docs/ARCHITECTURE.md describe listeners, callers, the allow-list and connections as built; the release workflow ships the daemon for linux/arm64 and linux/amd64 as the VPS package with the unit installer, and CI runs the remote tests on all three operating systems (the desktop job already runs the desktop tests); the README says what phase 2 adds. Update the project status.",
+    "acceptance": [
+      "QUICKSTART, API and ARCHITECTURE describe remote use as built",
+      "The release produces a VPS package for linux/amd64 and linux/arm64",
+      "CI runs the remote tests on ubuntu, macos and windows"
+    ],
+    "checks": [
+      {
+        "name": "quickstart remote",
+        "file": "docs/QUICKSTART.md",
+        "contains": [
+          "VPS",
+          "tailnet",
+          "docs/VPS.md"
+        ]
+      },
+      {
+        "name": "architecture remote",
+        "file": "docs/ARCHITECTURE.md",
+        "contains": [
+          "Caller",
+          "allow-list",
+          "tailnet listener"
+        ]
+      },
+      {
+        "name": "release vps package",
+        "file": ".github/workflows/release.yml",
+        "contains": [
+          "linux-amd64",
+          "linux-arm64",
+          "VPS"
+        ]
+      }
+    ],
+    "paths": [
+      "docs/",
+      "README.md",
+      ".github/workflows/"
+    ],
+    "docs": [
+      "docs/VPS.md"
+    ]
+  }
+]
