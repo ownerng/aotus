@@ -17,3 +17,9 @@ coverage.*
 .idea/
 .vscode/
 .DS_Store
+
+# binaries produced by `go build ./cmd/...` run from the repository root
+/aotus-desktop
+/aotus
+/aotusd
+/crew

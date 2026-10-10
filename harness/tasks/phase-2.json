@@ -256,7 +256,7 @@
     "id": "P2-006",
     "phase": 2,
     "title": "Desktop: connections, and working against a daemon on a VPS",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-005"
     ],
@@ -312,7 +312,8 @@
     "docs": [
       "docs/DECISIONS/0010-desktop-stack.md",
       "docs/ARCHITECTURE.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-007",

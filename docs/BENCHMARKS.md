@@ -38,3 +38,16 @@ What this says:
 - The window costs what a WebView costs, about 250 MB, however small the page. The conversation adds little: loading all 1000 messages added about 23 MB because the list only builds the rows near the viewport (`VirtualList.svelte`) and history is loaded in pages of 20 turns, answers of old turns on demand.
 - This is why closing the window quits the app (ADR 0010): the employees run in the 15 MB daemon, so the 250 MB is paid only while a window is open. Keeping the app in the tray is an opt-in setting.
 - Only Linux was measured. macOS and Windows rows come from CI machines or the owner's machines when P1-018 and P1-021 run there.
+
+## Remote connection
+
+Measured on 2026-10-09 on the same machine, with the window connected to a **remote daemon** (a second process serving the API through the tailnet-style identified listener on loopback; no Tailscale involved, so this measures the window, not the network), on an employee with 500 turns (1000 messages). `AOTUS_HOME` pointed to an empty directory, and no local daemon was started, which is the point of the first test of P2-006.
+
+| State | App | Web process | Network process | Total PSS |
+| --- | --- | --- | --- | --- |
+| Remote connection, opened on the 500-turn employee (latest 20 turns loaded) | 92 MB | 138 MB | 27 MB | **258 MB** |
+| Local connection, same screen (table above) | 90 MB | 133 MB | 26 MB | 249 MB |
+| The remote daemon (including the 500 seeded turns) | | | | 17 MB |
+
+The window costs about 9 MB more than against the local daemon (the connection state and the extra screen), nothing that depends on the network. What changes with a real tailnet is latency, which the stream-latency budget (N3) covers on the daemon side and which Tailscale adds to.
+

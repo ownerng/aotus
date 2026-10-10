@@ -39,6 +39,10 @@ type fakeDaemon struct {
 	st     *store.Store
 }
 
+// connFile is a connections file of the test's own, so no test ever reads the
+// real one of the user.
+func connFile(t *testing.T) string { return filepath.Join(t.TempDir(), "connections.json") }
+
 func newLayout(t *testing.T) datadir.Layout {
 	t.Helper()
 	return datadir.Layout{Root: filepath.Join(t.TempDir(), "aotus")}
@@ -125,8 +129,9 @@ func TestStartsDaemonWhenNoneIsRunning(t *testing.T) {
 	var gotPath string
 	var gotArgs []string
 	b := NewBackend(Options{
-		Layout:     l,
-		DaemonPath: "/opt/aotus/aotusd",
+		ConnectionsPath: connFile(t),
+		Layout:          l,
+		DaemonPath:      "/opt/aotus/aotusd",
 		StartDaemon: func(path string, args ...string) (int, error) {
 			gotPath, gotArgs = path, args
 			d = startFakeDaemon(t, l) // what the real aotusd does once started
@@ -153,7 +158,7 @@ func TestStartsDaemonWhenNoneIsRunning(t *testing.T) {
 
 func TestReportsAMissingDaemonBinary(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	b := NewBackend(Options{Layout: newLayout(t), ReadyTimeout: time.Second})
+	b := NewBackend(Options{ConnectionsPath: connFile(t), Layout: newLayout(t), ReadyTimeout: time.Second})
 	defer b.shutdown()
 	s, err := b.Connect()
 	if err == nil || s.Connected || !strings.Contains(s.Error, "aotusd") {
@@ -165,7 +170,7 @@ func TestReusesRunningDaemon(t *testing.T) {
 	l := newLayout(t)
 	startFakeDaemon(t, l)
 	started := false
-	b := NewBackend(Options{Layout: l, StartDaemon: func(string, ...string) (int, error) { started = true; return 0, nil }})
+	b := NewBackend(Options{ConnectionsPath: connFile(t), Layout: l, StartDaemon: func(string, ...string) (int, error) { started = true; return 0, nil }})
 	defer b.shutdown()
 
 	s, err := b.Connect()
@@ -183,7 +188,7 @@ func TestReusesRunningDaemon(t *testing.T) {
 func TestClosingWindowKeepsDaemonRunning(t *testing.T) {
 	l := newLayout(t)
 	d := startFakeDaemon(t, l)
-	b := NewBackend(Options{Layout: l})
+	b := NewBackend(Options{ConnectionsPath: connFile(t), Layout: l})
 	if _, err := b.Connect(); err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +226,7 @@ func TestStreamsChatFromDaemon(t *testing.T) {
 	l := newLayout(t)
 	startFakeDaemon(t, l)
 	col := newCollector()
-	b := NewBackend(Options{Layout: l, Emit: col.emit})
+	b := NewBackend(Options{ConnectionsPath: connFile(t), Layout: l, Emit: col.emit})
 	defer b.shutdown()
 	if _, err := b.Connect(); err != nil {
 		t.Fatal(err)

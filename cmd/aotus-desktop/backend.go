@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,13 +28,20 @@ const (
 	EventResync   = "resync"   // the stream fell behind: reload what is on screen
 )
 
-// DaemonState says whether the window is connected to the daemon.
+// DaemonState says whether the window is connected to a daemon, and which.
 type DaemonState struct {
 	Connected bool   `json:"connected"`
 	Started   bool   `json:"started"` // this app started the daemon
 	Address   string `json:"address"`
 	Version   string `json:"version"`
 	Error     string `json:"error"`
+	// Connection is the name of the saved connection in use; "local" is this
+	// computer's own daemon.
+	Connection string `json:"connection"`
+	Remote     bool   `json:"remote"`
+	// Login and Role are who the daemon says we are (remote connections).
+	Login string `json:"login"`
+	Role  string `json:"role"`
 }
 
 // TerminalChunk is output of a terminal, base64 encoded because it is bytes.
@@ -46,11 +54,15 @@ type TerminalChunk struct {
 // Options configures a Backend.
 type Options struct {
 	Layout datadir.Layout
+	// ConnectionsPath is the file of saved remote connections; "" means the
+	// user's config directory.
+	ConnectionsPath string
 	// DaemonPath is the aotusd binary; "" looks next to this program, then in
 	// the PATH.
 	DaemonPath string
 	// StartDaemon starts the daemon so that it outlives this program. It
-	// defaults to proc.StartDetached.
+	// defaults to proc.StartDetached. It is only ever used for this computer's
+	// daemon, never for a remote connection.
 	StartDaemon func(path string, args ...string) (int, error)
 	// Emit delivers an event to the window.
 	Emit func(name string, data any)
@@ -64,13 +76,22 @@ type Options struct {
 type Backend struct {
 	o Options
 
+	// switchMu serialises connecting, switching and closing.
+	switchMu sync.Mutex
+
 	mu    sync.Mutex
 	c     *client.Client
 	state DaemonState
+	// target is the connection in use: client.LocalName or a saved name.
+	target string
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	wg     sync.WaitGroup // terminal pumps
+
+	// connCtx lives as long as one connection; follow stops with it.
+	connCancel context.CancelFunc
+	follows    sync.WaitGroup
 
 	terms map[string]*client.Terminal
 }
@@ -90,63 +111,157 @@ func NewBackend(o Options) *Backend {
 	return &Backend{o: o, ctx: ctx, cancel: cancel, terms: map[string]*client.Terminal{}}
 }
 
-// Connect finds the running daemon, or starts one, and starts following its
-// events. It is safe to call again after the connection was lost.
-func (b *Backend) Connect() (DaemonState, error) {
-	return b.connect(b.ctx)
+func (b *Backend) connectionsPath() (string, error) {
+	if b.o.ConnectionsPath != "" {
+		return b.o.ConnectionsPath, nil
+	}
+	return client.ConnectionsPath()
 }
 
-func (b *Backend) connect(ctx context.Context) (DaemonState, error) {
+// Connect connects to the connection the user last chose (this computer's
+// daemon at first), and starts following its events. For this computer it finds
+// the daemon or starts one; for a remote connection it only dials, and never
+// starts anything. It is safe to call again after the connection was lost.
+func (b *Backend) Connect() (DaemonState, error) {
+	b.switchMu.Lock()
+	defer b.switchMu.Unlock()
 	b.mu.Lock()
-	if b.c != nil {
-		if _, err := b.c.Status(ctx); err == nil {
-			s := b.state
-			b.mu.Unlock()
-			return s, nil
-		}
-		b.c = nil
-	}
+	target := b.target
+	connected := b.c != nil
 	b.mu.Unlock()
-
-	started := false
-	c, err := client.Discover(ctx, b.o.Layout)
-	if errors.Is(err, client.ErrNoDaemon) {
-		path, perr := b.daemonPath()
-		if perr != nil {
-			return b.fail(perr)
+	if connected {
+		if _, err := b.c.Status(b.ctx); err == nil {
+			return b.State(), nil
 		}
-		if _, serr := b.o.StartDaemon(path, "--data-dir", b.o.Layout.Root); serr != nil {
-			return b.fail(fmt.Errorf("starting the daemon: %w", serr))
-		}
-		started = true
-		c, err = b.waitReady(ctx)
 	}
+	if target == "" {
+		path, err := b.connectionsPath()
+		if err != nil {
+			return b.fail(err)
+		}
+		saved, err := client.LoadConnections(path)
+		if err != nil {
+			return b.fail(err)
+		}
+		target = saved.Active
+		if target == "" {
+			target = client.LocalName
+		}
+	}
+	return b.connectTo(target)
+}
+
+// State is the current state of the connection.
+func (b *Backend) State() DaemonState {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.state
+}
+
+// connectTo drops what belongs to the old connection and opens target.
+func (b *Backend) connectTo(target string) (DaemonState, error) {
+	b.dropConnection()
+
+	ctx, cancel := context.WithCancel(b.ctx)
+	var c *client.Client
+	var err error
+	var started bool
+	remote := !strings.EqualFold(target, client.LocalName)
+	if remote {
+		c, err = b.dialSaved(ctx, target)
+	} else {
+		target = client.LocalName
+		c, started, err = b.connectLocal(ctx)
+	}
+	b.mu.Lock()
+	b.target = target
+	b.mu.Unlock()
 	if err != nil {
+		cancel()
 		return b.fail(err)
 	}
 	st, err := c.Status(ctx)
 	if err != nil {
+		cancel()
 		return b.fail(err)
 	}
-
-	b.mu.Lock()
-	first := b.c == nil && b.state.Address == ""
-	b.c = c
-	b.state = DaemonState{Connected: true, Started: started || b.state.Started, Address: c.Address(), Version: st.Version}
-	s := b.state
-	b.mu.Unlock()
-	b.o.Emit(EventDaemon, s)
-	if first {
-		b.wg.Add(1)
-		go b.follow()
+	state := DaemonState{Connected: true, Started: started, Address: c.Address(), Version: st.Version, Connection: target, Remote: remote}
+	if remote {
+		if me, merr := c.Me(ctx); merr == nil {
+			state.Login, state.Role = me.Login, me.Role
+		}
 	}
-	return s, nil
+	b.mu.Lock()
+	b.c, b.state, b.connCancel = c, state, cancel
+	b.mu.Unlock()
+	b.o.Emit(EventDaemon, state)
+	b.follows.Add(1)
+	go b.follow(ctx)
+	return state, nil
+}
+
+// dropConnection ends the event stream and the terminals of the current
+// connection, and forgets its client.
+func (b *Backend) dropConnection() {
+	b.mu.Lock()
+	cancel := b.connCancel
+	b.connCancel = nil
+	terms := b.terms
+	b.terms = map[string]*client.Terminal{}
+	b.c = nil
+	b.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	for _, t := range terms {
+		_ = t.Close()
+	}
+	b.follows.Wait()
+}
+
+// dialSaved dials a saved remote connection. Failing is an answer, not a
+// reason to start anything.
+func (b *Backend) dialSaved(ctx context.Context, name string) (*client.Client, error) {
+	path, err := b.connectionsPath()
+	if err != nil {
+		return nil, err
+	}
+	saved, err := client.LoadConnections(path)
+	if err != nil {
+		return nil, err
+	}
+	conn, ok := saved.Get(name)
+	if !ok {
+		return nil, fmt.Errorf("there is no saved connection called %q", name)
+	}
+	return client.Dial(ctx, conn)
+}
+
+// connectLocal finds this computer's daemon, or starts it.
+func (b *Backend) connectLocal(ctx context.Context) (*client.Client, bool, error) {
+	c, err := client.Discover(ctx, b.o.Layout)
+	if err == nil {
+		return c, false, nil
+	}
+	if !errors.Is(err, client.ErrNoDaemon) {
+		return nil, false, err
+	}
+	path, perr := b.daemonPath()
+	if perr != nil {
+		return nil, false, perr
+	}
+	if _, serr := b.o.StartDaemon(path, "--data-dir", b.o.Layout.Root); serr != nil {
+		return nil, false, fmt.Errorf("starting the daemon: %w", serr)
+	}
+	c, err = b.waitReady(ctx)
+	return c, true, err
 }
 
 func (b *Backend) fail(err error) (DaemonState, error) {
-	s := DaemonState{Error: err.Error()}
 	b.mu.Lock()
-	b.state.Connected, b.state.Error = false, s.Error
+	b.state.Connected, b.state.Error = false, err.Error()
+	b.state.Connection, b.state.Remote = b.target, b.target != "" && !strings.EqualFold(b.target, client.LocalName)
+	s := b.state
 	b.mu.Unlock()
 	b.o.Emit(EventDaemon, s)
 	return s, err
@@ -200,30 +315,31 @@ func (b *Backend) daemonPath() (string, error) {
 	return "", fmt.Errorf("cannot find %s: install it next to this program or in the PATH", name)
 }
 
-// follow forwards the daemon's events to the window, reconnecting when the
-// stream drops.
-func (b *Backend) follow() {
-	defer b.wg.Done()
-	for b.ctx.Err() == nil {
+// follow forwards the daemon's events to the window until the connection ends,
+// reconnecting when the stream drops. When it comes back it tells the window,
+// which reloads what it shows; what is on screen is never cleared meanwhile.
+func (b *Backend) follow(ctx context.Context) {
+	defer b.follows.Done()
+	for ctx.Err() == nil {
 		c := b.client()
 		if c == nil {
-			b.sleep(time.Second)
-			continue
+			return
 		}
-		stream, err := c.Events(b.ctx, "")
+		stream, err := c.Events(ctx, "")
 		if err != nil {
-			b.lost(err)
-			b.sleep(time.Second)
+			b.lost(ctx, err)
+			sleepCtx(ctx, time.Second)
 			continue
 		}
+		b.up()
 		for {
-			m, err := stream.Next(b.ctx)
+			m, err := stream.Next(ctx)
 			if err != nil {
 				_ = stream.Close()
 				if client.TooSlow(err) {
 					b.o.Emit(EventResync, nil)
-				} else if b.ctx.Err() == nil {
-					b.lost(err)
+				} else if ctx.Err() == nil {
+					b.lost(ctx, err)
 				}
 				break
 			}
@@ -234,39 +350,54 @@ func (b *Backend) follow() {
 				b.o.Emit(EventApproval, m.Approval)
 			}
 		}
-		b.sleep(500 * time.Millisecond)
+		sleepCtx(ctx, 500*time.Millisecond)
 	}
 }
 
-// lost records that the daemon cannot be reached and tries to bring it back.
-func (b *Backend) lost(err error) {
+// up records that the stream is working. If it was down, the window is told
+// and asked to reload.
+func (b *Backend) up() {
+	b.mu.Lock()
+	was := b.state.Connected
+	b.state.Connected, b.state.Error = true, ""
+	s := b.state
+	b.mu.Unlock()
+	if !was {
+		b.o.Emit(EventDaemon, s)
+		b.o.Emit(EventResync, nil)
+	}
+}
+
+// lost records that the daemon cannot be reached. For this computer's daemon it
+// also tries to bring it back; for a remote one it only waits for the link.
+func (b *Backend) lost(ctx context.Context, err error) {
 	b.mu.Lock()
 	was := b.state.Connected
 	b.state.Connected, b.state.Error = false, err.Error()
 	s := b.state
+	remote := s.Remote
 	b.mu.Unlock()
 	if was {
 		b.o.Emit(EventDaemon, s)
 	}
-	if _, cerr := client.Discover(b.ctx, b.o.Layout); cerr != nil {
-		ctx, cancel := context.WithTimeout(b.ctx, b.o.ReadyTimeout+time.Second)
-		defer cancel()
-		b.mu.Lock()
-		b.c = nil
-		b.mu.Unlock()
-		_, _ = b.connect(ctx) // starts the daemon again if it died
+	if remote || ctx.Err() != nil {
 		return
 	}
-	b.mu.Lock()
-	b.state.Connected, b.state.Error = true, ""
-	s = b.state
-	b.mu.Unlock()
-	b.o.Emit(EventDaemon, s)
+	if _, cerr := client.Discover(ctx, b.o.Layout); cerr != nil {
+		// The daemon died: start it again, then pick up its new address.
+		sctx, cancel := context.WithTimeout(ctx, b.o.ReadyTimeout+time.Second)
+		defer cancel()
+		if c, _, lerr := b.connectLocal(sctx); lerr == nil {
+			b.mu.Lock()
+			b.c = c
+			b.mu.Unlock()
+		}
+	}
 }
 
-func (b *Backend) sleep(d time.Duration) {
+func sleepCtx(ctx context.Context, d time.Duration) {
 	select {
-	case <-b.ctx.Done():
+	case <-ctx.Done():
 	case <-time.After(d):
 	}
 }
@@ -289,13 +420,9 @@ func (b *Backend) api() (*client.Client, error) {
 // attachments. The daemon, and with it every employee, keeps running.
 func (b *Backend) shutdown() {
 	b.cancel()
-	b.mu.Lock()
-	terms := b.terms
-	b.terms = map[string]*client.Terminal{}
-	b.mu.Unlock()
-	for _, t := range terms {
-		_ = t.Close()
-	}
+	b.switchMu.Lock()
+	defer b.switchMu.Unlock()
+	b.dropConnection()
 	b.wg.Wait()
 }
 

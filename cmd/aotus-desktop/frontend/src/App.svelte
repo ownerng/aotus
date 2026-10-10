@@ -8,6 +8,7 @@
   import NewEmployee from "./lib/NewEmployee.svelte";
   import Approvals from "./lib/Approvals.svelte";
   import Settings from "./lib/Settings.svelte";
+  import Connections from "./lib/Connections.svelte";
 
   onMount(() => { app.start(); });
   const emp = $derived(app.current);
@@ -17,6 +18,11 @@
 <div class="shell">
   <aside class="side">
     <header>Aotus</header>
+    <button class="item" title="Where this window is connected" onclick={() => (app.view = "connections")}>
+      <span class="dot" class:running={app.daemon?.connected} class:paused={!app.daemon?.connected}></span>
+      <span class="grow">{app.daemon?.remote ? app.daemon.connection : "This computer"}</span>
+      {#if app.daemon?.remote}<span class="muted">{app.daemon.role}</span>{/if}
+    </button>
     <nav>
       <h3>Employees</h3>
       {#each app.employees as e (e.id)}
@@ -30,13 +36,14 @@
         <span class="grow">Approvals</span>{#if app.approvals.length}<span class="badge">{app.approvals.length}</span>{/if}
       </button>
       <button class="item" class:on={app.view === "profiles"} onclick={() => (app.view = "profiles")}>Subscriptions</button>
+      <button class="item" class:on={app.view === "connections"} onclick={() => (app.view = "connections")}>Connections</button>
       <button class="item" class:on={app.view === "settings"} onclick={() => (app.view = "settings")}>Settings</button>
     </nav>
   </aside>
 
   <main class="main">
     {#if app.daemon && !app.daemon.connected}
-      <div class="banner bad">Cannot reach the daemon: {app.daemon.error}. Trying again…</div>
+      <div class="banner bad">Lost the connection to {app.daemon.remote ? app.daemon.connection : "the daemon"}: {app.daemon.error}. Trying again… what is on screen stays.</div>
     {:else if app.error}
       <div class="banner bad">{app.error}</div>
     {/if}
@@ -66,6 +73,8 @@
       <NewEmployee />
     {:else if app.view === "approvals"}
       <Approvals />
+    {:else if app.view === "connections"}
+      <Connections />
     {:else if app.view === "settings"}
       <Settings />
     {:else}

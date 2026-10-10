@@ -4,7 +4,7 @@ import type { DaemonState, Settings } from "../../bindings/aotus/cmd/aotus-deskt
 import type { Approval, Employee, Profile, Turn, Update, Event as Ev } from "../../bindings/aotus/internal/client/models";
 import type { ChatItem } from "./types";
 
-export type View = "chat" | "terminal" | "profiles" | "new-employee" | "approvals" | "settings";
+export type View = "chat" | "terminal" | "profiles" | "new-employee" | "approvals" | "settings" | "connections";
 
 const FIRST_PAGE = 20;
 const EAGER_TURNS = 8; // answers loaded right away; older ones on demand
@@ -35,6 +35,8 @@ class AppState {
     Events.On("daemon", (e) => (this.daemon = e.data));
     Events.On("update", (e) => this.onUpdate(e.data as Update));
     Events.On("approval", (e) => this.onApproval(e.data as Approval));
+    // After a dropped link or a slow stream, catch up. What is on screen is not
+    // cleared first.
     Events.On("resync", () => this.refreshAll());
     try {
       this.daemon = await Backend.Connect();
@@ -67,6 +69,26 @@ class AppState {
   async answer(id: string, allow: boolean, remember: string) {
     await Backend.Answer(id, allow, remember);
     this.approvals = this.approvals.filter((a) => a.id !== id);
+  }
+
+  // Switching to another daemon (this computer or a VPS) reloads everything.
+  async switchTo(name: string) {
+    this.error = "";
+    try {
+      this.daemon = await Backend.SwitchConnection(name);
+    } catch (err) {
+      this.error = String(err);
+      this.daemon = await Backend.Connect().catch(() => this.daemon);
+      return;
+    }
+    this.selected = "";
+    this.chat = [];
+    this.employees = [];
+    this.profiles = [];
+    this.approvals = [];
+    await this.refreshAll();
+    if (this.employees.length) await this.open(this.employees[0].id);
+    else this.view = "profiles";
   }
 
   async open(id: string) {
