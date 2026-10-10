@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -51,6 +52,9 @@ func runService(t *testing.T, o options, args ...string) (int, string, string) {
 }
 
 func TestServiceInstallAndUninstallFlags(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the service is for Linux servers: the unit holds POSIX paths, and this test runs the real binary path")
+	}
 	data := filepath.Join(t.TempDir(), "data")
 
 	// With --service-dir the files are only written: nothing is asked of systemd.

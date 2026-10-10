@@ -83,7 +83,8 @@ func Unit(o UnitOptions) (string, error) {
 	if o.Scope != ScopeUser && o.Scope != ScopeSystem {
 		return "", fmt.Errorf("%w: scope %q", ErrBadUnitOption, o.Scope)
 	}
-	if !filepath.IsAbs(o.ExecPath) || !filepath.IsAbs(o.DataDir) {
+	// Unit files are for Linux: their paths are POSIX paths whatever machine writes them.
+	if !strings.HasPrefix(o.ExecPath, "/") || !strings.HasPrefix(o.DataDir, "/") {
 		return "", fmt.Errorf("%w: the daemon and the data directory need absolute paths", ErrBadUnitOption)
 	}
 	for name, v := range map[string]string{"daemon path": o.ExecPath, "data directory": o.DataDir, "user": o.User, "group": o.Group,
