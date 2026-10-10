@@ -210,11 +210,11 @@ func (c *Client) explain(err error) error {
 	}
 	var dns *net.DNSError
 	switch {
-	case errors.As(err, &dns), errors.Is(err, syscall.ENETUNREACH), errors.Is(err, syscall.EHOSTUNREACH):
+	case errors.As(err, &dns), errors.Is(err, syscall.ENETUNREACH), errors.Is(err, syscall.EHOSTUNREACH), mentions(err, "network is unreachable", "no route to host", "host is unreachable"):
 		return fmt.Errorf("%w: is Tailscale running here, and is the name of %s right? (%w)", ErrTailnetDown, c.remote, err)
-	case errors.Is(err, syscall.ECONNREFUSED):
+	case errors.Is(err, syscall.ECONNREFUSED), mentions(err, "actively refused", "connection refused"):
 		return fmt.Errorf("%w: nothing listens at that address; is aotusd running with --tailnet on the server? (%w)", ErrUnreachable, err)
-	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, syscall.ECONNRESET):
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, syscall.ECONNRESET), mentions(err, "connection reset", "forcibly closed", "connection was aborted"):
 		return fmt.Errorf("%w: the daemon closed the connection. It does that to a device it cannot tie to a person (a tagged device) or when its own Tailscale cannot answer (%w)", ErrUnreachable, err)
 	}
 	var ne net.Error
@@ -324,4 +324,17 @@ func (c *Client) Follow(ctx context.Context, employeeID string, handle func(Mess
 			delay *= 2
 		}
 	}
+}
+
+// mentions reports whether the error text contains one of the phrases. Windows
+// reports the same network failures with its own error numbers that errors.Is
+// does not map to the syscall constants, so the text is the common ground.
+func mentions(err error, phrases ...string) bool {
+	text := strings.ToLower(err.Error())
+	for _, p := range phrases {
+		if strings.Contains(text, p) {
+			return true
+		}
+	}
+	return false
 }
