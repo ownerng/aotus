@@ -3,8 +3,7 @@
     "id": "P2-001",
     "phase": 2,
     "title": "Spike: how the daemon joins the tailnet (tsnet or the system Tailscale)",
-    "status": "todo",
-    "depends_on": [],
+    "status": "done",
     "requirements": [
       "S4",
       "F18"
@@ -47,7 +46,8 @@
       "docs/DECISIONS/0009-scope-personal-pc-first.md",
       "docs/SECURITY.md",
       "docs/ARCHITECTURE.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-002",
@@ -61,7 +61,7 @@
       "S4",
       "S1"
     ],
-    "description": "Generalize internal/netaccess from 'loopback only' to a small set of listener kinds chosen by configuration: loopback (default, as today) and tailnet (as decided in ADR 0014). Every accepted connection carries a Caller: how it was authenticated (local token or tailnet identity), the login name and the device. Loopback keeps its token; the tailnet listener never accepts a caller it cannot identify. Wildcard and public addresses stay impossible to configure: there is no option that listens on 0.0.0.0, and a test proves it. The identity source is an interface with a fake for tests, so everything above this task is testable without a tailnet.",
+    "description": "Generalize internal/netaccess from 'loopback only' to a small set of listener kinds chosen by configuration: loopback (default, as today) and tailnet (ADR 0014: the system Tailscale through its LocalAPI). Every accepted connection carries a Caller: how it was authenticated (local token or tailnet identity), the login name and the device. Loopback keeps its token; the tailnet listener never accepts a caller it cannot identify. Wildcard and public addresses stay impossible to configure: there is no option that listens on 0.0.0.0, and a test proves it. The identity source is an interface with a fake for tests, so everything above this task is testable without a tailnet.",
     "acceptance": [
       "Config selects loopback or tailnet; the default is unchanged",
       "A Caller type reaches the HTTP handlers through the request context",
@@ -152,7 +152,7 @@
   {
     "id": "P2-004",
     "phase": 2,
-    "title": "Tailnet listener in the daemon",
+    "title": "Tailnet listener in the daemon (system Tailscale, LocalAPI)",
     "status": "todo",
     "depends_on": [
       "P2-002",
@@ -162,11 +162,12 @@
       "F18",
       "S4"
     ],
-    "description": "Implement the tailnet listener the ADR chose and wire it into cmd/aotusd: a flag and a config entry to enable it, a hostname for the node, state kept in the data directory with owner-only permissions, the auth key read from the environment or the OS credential store (never stored in the database, logs, events or the discovery file, and never printed). The discovery file records the tailnet name next to the loopback address. The loopback listener keeps running for the local aotus CLI. Starting and stopping must be clean, and a failure to join the tailnet is a clear error that does not take the loopback listener down.",
+    "description": "Implement the tailnet listener decided in ADR 0014 and wire it into cmd/aotusd. A small stdlib-only LocalAPI client (Unix socket, Host local-tailscaled.sock) reads the node's tailnet address and does whois for each accepted connection; the identity is attached to the connection and reaches handlers as a Caller (P2-002). A flag and a config entry enable it (--tailnet, optional --tailscale-socket and --tailnet-port, default 7843); the listener binds to the tailnet address only and never to another address, even if Tailscale stops. The discovery file records the tailnet name next to the loopback address. The loopback listener keeps running for the local aotus CLI and does not depend on Tailscale: if Tailscale is missing, stopped or refuses whois, the daemon says exactly why and loopback keeps working. A contract test runs the client against recorded LocalAPI responses (fixtures under internal/netaccess/testdata, with provenance noted). Shutdown closes both listeners.",
     "acceptance": [
-      "aotusd --tailnet serves the API on the tailnet and on loopback",
-      "The auth key is never written to logs, events, the database or the discovery file (test)",
-      "A failure to join the tailnet leaves the loopback listener working and says why",
+      "aotusd --tailnet serves the API on the tailnet address and on loopback",
+      "The LocalAPI client passes a contract test against recorded status and whois responses",
+      "A missing, stopped or refusing Tailscale leaves the loopback listener working and says why",
+      "The tailnet listener never binds anything but the tailnet address",
       "Shutdown closes both listeners"
     ],
     "checks": [
@@ -175,15 +176,17 @@
         "pkg": "./cmd/aotusd",
         "tests": [
           "TestTailnetFlagStartsBothListeners",
-          "TestAuthKeyNeverLeaks",
-          "TestTailnetFailureKeepsLoopback"
+          "TestTailscaleMissingKeepsLoopback",
+          "TestTailnetListenerNeverBindsElsewhere"
         ]
       },
       {
-        "name": "netaccess tests",
+        "name": "localapi tests",
         "pkg": "./internal/netaccess",
         "tests": [
-          "TestTailnetStateIsOwnerOnly"
+          "TestLocalAPIContract",
+          "TestWhoisRefusalIsAnUnidentifiedPeer",
+          "TestTaggedDeviceIsRefused"
         ]
       }
     ],
