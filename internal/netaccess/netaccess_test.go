@@ -251,7 +251,8 @@ func TestCallerReachesHandlers(t *testing.T) {
 	go func() { _ = srv.Serve(l) }()
 	defer func() { _ = srv.Close() }()
 
-	resp, err := http.Get("http://" + l.Addr().String() + "/")
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://"+l.Addr().String()+"/", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}

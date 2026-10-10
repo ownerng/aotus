@@ -88,7 +88,7 @@ func newAPI(t *testing.T, allowed ...string) *testAPI {
 		_ = mgr.Shutdown(ctx)
 	})
 	broker := permissions.New(st)
-	h := api.New(api.Config{Manager: mgr, Broker: broker, Token: token, Version: "test", AllowedOrigins: allowed})
+	h := api.New(api.Config{Manager: mgr, Broker: broker, Token: token, Version: "test", AllowedOrigins: allowed, Store: st, TailnetHosts: []string{"vps.tail1234.ts.net", "100.64.0.7"}})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return &testAPI{Server: srv, handler: h, layout: l, mgr: mgr, broker: broker, st: st, keys: keys}

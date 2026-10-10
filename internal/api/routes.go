@@ -8,6 +8,7 @@ import (
 
 	"aotus/internal/orchestrator"
 	"aotus/internal/permissions"
+	"aotus/internal/store"
 )
 
 const base = "/api/v1"
@@ -16,46 +17,53 @@ func (s *Server) register() {
 	s.handle("GET "+base+"/status", s.status)
 
 	s.handle("GET "+base+"/profiles", s.listProfiles)
-	s.handle("POST "+base+"/profiles", s.createProfile)
-	s.handle("DELETE "+base+"/profiles/{id}", s.deleteProfile)
+	s.handleOwner("POST "+base+"/profiles", s.createProfile)
+	s.handleOwner("DELETE "+base+"/profiles/{id}", s.deleteProfile)
 	s.handle("GET "+base+"/profiles/{id}/detect", s.detectProfile)
-	s.handle("POST "+base+"/profiles/{id}/notices", s.acceptNotice)
-	s.handle("PUT "+base+"/profiles/{id}/api-key", s.setAPIKey)
-	s.handle("DELETE "+base+"/profiles/{id}/api-key", s.removeAPIKey)
-	s.handle("POST "+base+"/profiles/{id}/login", s.startLogin)
-	s.handle("GET "+base+"/profiles/{id}/login/ws", s.loginWS)
+	s.handleOwner("POST "+base+"/profiles/{id}/notices", s.acceptNotice)
+	s.handleOwner("PUT "+base+"/profiles/{id}/api-key", s.setAPIKey)
+	s.handleOwner("DELETE "+base+"/profiles/{id}/api-key", s.removeAPIKey)
+	s.handleOwner("POST "+base+"/profiles/{id}/login", s.startLogin)
+	s.handleOwner("GET "+base+"/profiles/{id}/login/ws", s.loginWS)
 
 	s.handle("GET "+base+"/employees", s.listEmployees)
 	s.handle("POST "+base+"/employees", s.createEmployee)
 	s.handle("GET "+base+"/employees/{id}", s.getEmployee)
-	s.handle("DELETE "+base+"/employees/{id}", s.deleteEmployee)
-	s.handle("POST "+base+"/employees/{id}/pause", s.pauseEmployee)
-	s.handle("POST "+base+"/employees/{id}/resume", s.resumeEmployee)
+	s.handleEmployee("DELETE "+base+"/employees/{id}", s.deleteEmployee)
+	s.handleEmployee("POST "+base+"/employees/{id}/pause", s.pauseEmployee)
+	s.handleEmployee("POST "+base+"/employees/{id}/resume", s.resumeEmployee)
 
-	s.handle("POST "+base+"/employees/{id}/turns", s.sendTurn)
-	s.handle("POST "+base+"/employees/{id}/cancel", s.cancelTurn)
-	s.handle("POST "+base+"/employees/{id}/interrupt", s.interruptTurn)
+	s.handleEmployee("POST "+base+"/employees/{id}/turns", s.sendTurn)
+	s.handleEmployee("POST "+base+"/employees/{id}/cancel", s.cancelTurn)
+	s.handleEmployee("POST "+base+"/employees/{id}/interrupt", s.interruptTurn)
 	s.handle("GET "+base+"/employees/{id}/history", s.history)
 	s.handle("GET "+base+"/turns/{id}/events", s.turnEvents)
 	s.handle("GET "+base+"/employees/{id}/audit", s.audit)
 
-	s.handle("POST "+base+"/employees/{id}/terminal", s.startTerminal)
-	s.handle("DELETE "+base+"/employees/{id}/terminal", s.stopTerminal)
-	s.handle("GET "+base+"/employees/{id}/terminal/ws", s.terminalWS)
+	s.handleEmployee("POST "+base+"/employees/{id}/terminal", s.startTerminal)
+	s.handleEmployee("DELETE "+base+"/employees/{id}/terminal", s.stopTerminal)
+	s.handleEmployee("GET "+base+"/employees/{id}/terminal/ws", s.terminalWS)
+
+	s.handle("GET "+base+"/me", s.me)
+	s.handleOwner("GET "+base+"/access", s.listAccess)
+	s.handleOwner("POST "+base+"/access", s.addAccess)
+	s.handleOwner("DELETE "+base+"/access/{login}", s.removeAccess)
+	s.handleOwner("POST "+base+"/profiles/{id}/shares", s.shareProfile)
+	s.handleOwner("DELETE "+base+"/profiles/{id}/shares/{login}", s.unshareProfile)
 
 	s.handle("GET "+base+"/events", s.eventsWS)
 
 	s.handle("GET "+base+"/approvals", s.listApprovals)
 	s.handle("POST "+base+"/approvals/{id}", s.answerApproval)
 	s.handle("GET "+base+"/employees/{id}/grants", s.listGrants)
-	s.handle("PUT "+base+"/employees/{id}/grants", s.putGrant)
-	s.handle("DELETE "+base+"/employees/{id}/grants", s.deleteGrant)
+	s.handleOwner("PUT "+base+"/employees/{id}/grants", s.putGrant)
+	s.handleOwner("DELETE "+base+"/employees/{id}/grants", s.deleteGrant)
 
 	s.handle("GET "+base+"/employees/{id}/memory/search", s.searchMemory)
 	s.handle("GET "+base+"/employees/{id}/memory/facts", s.listFacts)
-	s.handle("POST "+base+"/employees/{id}/memory/facts", s.addFact)
-	s.handle("DELETE "+base+"/employees/{id}/memory/facts/{fact}", s.deleteFact)
-	s.handle("POST "+base+"/employees/{id}/memory/sync", s.syncMemory)
+	s.handleEmployee("POST "+base+"/employees/{id}/memory/facts", s.addFact)
+	s.handleEmployee("DELETE "+base+"/employees/{id}/memory/facts/{fact}", s.deleteFact)
+	s.handleEmployee("POST "+base+"/employees/{id}/memory/sync", s.syncMemory)
 }
 
 // fail maps an error to an HTTP status and a stable error code. Errors this
@@ -300,6 +308,9 @@ func (s *Server) createEmployee(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
+	if !s.requireProfile(w, r, in.ProfileID) {
+		return
+	}
 	e, err := s.cfg.Manager.Service().CreateEmployee(r.Context(), orchestrator.NewEmployee{
 		Name: in.Name, Role: in.Role, SystemPrompt: in.SystemPrompt, ProfileID: in.ProfileID,
 		PermissionMode: in.PermissionMode, AllowedTools: in.AllowedTools,
@@ -446,10 +457,11 @@ func (s *Server) audit(w http.ResponseWriter, r *http.Request) {
 		Action   string `json:"action"`
 		Detail   string `json:"detail"`
 		Decision string `json:"decision,omitempty"`
+		Caller   string `json:"caller,omitempty"`
 	}
 	out := make([]row, len(rows))
 	for i, a := range rows {
-		out[i] = row{a.At.UTC().Format(time.RFC3339Nano), a.Kind, a.Action, a.Detail, a.Decision}
+		out[i] = row{a.At.UTC().Format(time.RFC3339Nano), a.Kind, a.Action, a.Detail, a.Decision, a.Caller}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -519,7 +531,14 @@ func (s *Server) answerApproval(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid", `remember must be "none", "exact" or "kind"`)
 		return
 	}
-	if err := s.cfg.Broker.Answer(r.PathValue("id"), in.Allow, rem); err != nil {
+	if p := principalOf(r); p.Role != store.RoleOwner {
+		for _, req := range s.cfg.Broker.Pending() {
+			if req.ID == r.PathValue("id") && !s.requireEmployee(w, r, req.Action.EmployeeID) {
+				return
+			}
+		}
+	}
+	if err := s.cfg.Broker.AnswerAs(r.PathValue("id"), in.Allow, rem, principalOf(r).Caller.String()); err != nil {
 		s.fail(w, err)
 		return
 	}

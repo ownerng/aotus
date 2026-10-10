@@ -93,7 +93,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "aotusd: recovered: %d turn(s) interrupted by the last stop, %d terminal session(s) resumed, %d could not be resumed\n",
 			rec.Interrupted, len(rec.Resumed), len(rec.Failed))
 	}
-	handler := api.New(api.Config{Manager: mgr, Broker: permissions.New(st), Token: token, Version: version.Version})
+	handler := api.New(api.Config{Manager: mgr, Broker: permissions.New(st), Token: token, Version: version.Version, Store: st})
 
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	served := make(chan error, 1)

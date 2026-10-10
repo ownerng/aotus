@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -13,8 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"aotus/internal/netaccess"
 	"aotus/internal/orchestrator"
 	"aotus/internal/permissions"
+	"aotus/internal/store"
 )
 
 // Config is what the server needs.
@@ -30,6 +33,13 @@ type Config struct {
 	// default is none: the daemon's clients are programs, which send no Origin
 	// header, and a web page must never be able to talk to the daemon.
 	AllowedOrigins []string
+	// Store holds the owner, the allow-list and the audit log. Without it no
+	// remote caller is served.
+	Store *store.Store
+	// TailnetHosts are the names this daemon answers to on the tailnet (its
+	// MagicDNS name, short name and tailnet addresses). A request to the tailnet
+	// listener with any other Host header is refused (DNS rebinding).
+	TailnetHosts []string
 }
 
 // Server is the API's HTTP handler.
@@ -63,28 +73,118 @@ func (s *Server) handle(pattern string, h http.HandlerFunc) {
 	s.mux.HandleFunc(pattern, h)
 }
 
-// ServeHTTP implements http.Handler.
+// principal is who a request comes from and what they may do.
+type principal struct {
+	Caller netaccess.Caller
+	Role   store.Role
+}
+
+type principalKey struct{}
+
+func principalOf(r *http.Request) principal {
+	p, _ := r.Context().Value(principalKey{}).(principal)
+	return p
+}
+
+// ServeHTTP implements http.Handler. There are two ways in, and they never mix:
+//
+//   - a connection from the tailnet listener carries the identity Tailscale
+//     vouched for (netaccess.ConnContext). The bearer token and any header
+//     claiming an identity are ignored; the Host must be one of this daemon's
+//     tailnet names; the person must be the owner or on the allow-list.
+//   - any other connection is on loopback and needs the local token.
+//
+// Both refuse requests with an Origin header unless allow-listed. No response
+// ever carries CORS headers.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Responses are for the program that asked, never cacheable or embeddable.
 	h := w.Header()
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Content-Type-Options", "nosniff")
 
-	if !localHost(r.Host) {
-		writeError(w, http.StatusForbidden, "bad_host", "this address is not served: use 127.0.0.1, localhost or [::1]")
+	var p principal
+	if caller, remote := netaccess.CallerFrom(r.Context()); remote {
+		if caller.Method != netaccess.MethodTailnet {
+			writeError(w, http.StatusForbidden, "forbidden", "this caller is not served")
+			return
+		}
+		if !s.tailnetHost(r.Host) {
+			writeError(w, http.StatusForbidden, "bad_host", "this address is not served: use the daemon's tailnet name")
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
+			writeError(w, http.StatusForbidden, "bad_origin", "requests from web pages are not accepted")
+			return
+		}
+		role := store.RoleNone
+		if s.cfg.Store != nil {
+			var err error
+			if role, err = s.cfg.Store.RoleOf(r.Context(), caller.Login); err != nil {
+				s.log.Error("reading the allow-list", "err", err)
+				writeError(w, http.StatusInternalServerError, "internal", "the request could not be checked")
+				return
+			}
+		}
+		if role == store.RoleNone {
+			s.refuse(r, caller, "not on the allow-list")
+			writeError(w, http.StatusForbidden, "not_allowed", "this login is not on the daemon's allow-list: ask its owner to add it")
+			return
+		}
+		p = principal{Caller: caller, Role: role}
+	} else {
+		if !localHost(r.Host) {
+			writeError(w, http.StatusForbidden, "bad_host", "this address is not served: use 127.0.0.1, localhost or [::1]")
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
+			writeError(w, http.StatusForbidden, "bad_origin", "requests from web pages are not accepted")
+			return
+		}
+		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !ok || s.cfg.Token == "" || subtle.ConstantTimeCompare([]byte(got), []byte(s.cfg.Token)) != 1 {
+			h.Set("WWW-Authenticate", `Bearer realm="aotus"`)
+			writeError(w, http.StatusUnauthorized, "unauthorized", "a valid token is required")
+			return
+		}
+		// Whoever can read the data directory (the token) is the owner.
+		p = principal{Caller: netaccess.Caller{Method: netaccess.MethodToken}, Role: store.RoleOwner}
+	}
+	ctx := context.WithValue(r.Context(), principalKey{}, p)
+	ctx = store.WithCaller(ctx, p.Caller.String())
+	s.mux.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// refuse records a refused remote caller in the audit log.
+func (s *Server) refuse(r *http.Request, caller netaccess.Caller, why string) {
+	if s.cfg.Store == nil {
 		return
 	}
-	if origin := r.Header.Get("Origin"); origin != "" && !s.originAllowed(origin) {
-		writeError(w, http.StatusForbidden, "bad_origin", "requests from web pages are not accepted")
-		return
+	_, err := s.cfg.Store.AppendAudit(r.Context(), store.AuditRow{
+		Kind: "access", Action: "refused", Detail: why + ": " + r.Method + " " + r.URL.Path,
+		Decision: "denied", Caller: caller.String(),
+	})
+	if err != nil {
+		s.log.Error("recording a refused caller", "err", err)
 	}
-	got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok || s.cfg.Token == "" || subtle.ConstantTimeCompare([]byte(got), []byte(s.cfg.Token)) != 1 {
-		h.Set("WWW-Authenticate", `Bearer realm="aotus"`)
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid token is required")
-		return
+}
+
+// tailnetHost reports whether a Host header is one of this daemon's tailnet
+// names.
+func (s *Server) tailnetHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
 	}
-	s.mux.ServeHTTP(w, r)
+	host = strings.ToLower(strings.TrimSuffix(strings.Trim(host, "[]"), "."))
+	if host == "" {
+		return false
+	}
+	for _, n := range s.cfg.TailnetHosts {
+		if strings.EqualFold(strings.TrimSuffix(n, "."), host) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) originAllowed(origin string) bool {

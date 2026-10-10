@@ -117,6 +117,7 @@ type pending struct {
 type answer struct {
 	allow    bool
 	remember Remember
+	by       string // who answered, for the audit log
 }
 
 // New returns a broker that records to st.
@@ -151,7 +152,7 @@ func (b *Broker) Check(ctx context.Context, a Action) (Decision, Reason, error) 
 			return Denied, ReasonAuditError, fmt.Errorf("permissions: reading remembered decisions: %w", err)
 		}
 		if ok {
-			return b.finish(ctx, a, g.Allow, ReasonRemembered)
+			return b.finish(ctx, a, g.Allow, ReasonRemembered, "")
 		}
 	}
 
@@ -182,27 +183,27 @@ func (b *Broker) Check(ctx context.Context, a Action) (Decision, Reason, error) 
 				return Denied, ReasonAuditError, fmt.Errorf("permissions: remembering the decision: %w", err)
 			}
 		}
-		return b.finish(ctx, a, ans.allow, ReasonUser)
+		return b.finish(ctx, a, ans.allow, ReasonUser, ans.by)
 	case <-timer.C:
-		return b.finish(ctx, a, false, ReasonTimeout)
+		return b.finish(ctx, a, false, ReasonTimeout, "")
 	case <-ctx.Done():
 		// The turn was canceled while waiting: record it, even though ctx is
 		// done, so the log shows the request that was abandoned.
-		return b.finish(context.WithoutCancel(ctx), a, false, ReasonCanceled)
+		return b.finish(context.WithoutCancel(ctx), a, false, ReasonCanceled, "")
 	}
 }
 
 // finish writes the audit entry and only then reports the decision. If the
 // entry cannot be written, an allow becomes a deny: no action may happen
 // without a record.
-func (b *Broker) finish(ctx context.Context, a Action, allow bool, why Reason) (Decision, Reason, error) {
+func (b *Broker) finish(ctx context.Context, a Action, allow bool, why Reason, by string) (Decision, Reason, error) {
 	decision := Denied
 	if allow {
 		decision = Allowed
 	}
 	_, err := b.st.AppendAudit(ctx, store.AuditRow{
 		At: b.clock(), EmployeeID: a.EmployeeID, Kind: "permission", Action: string(a.Kind),
-		Detail: a.Target + " [" + string(why) + "]", Decision: string(decision),
+		Detail: a.Target + " [" + string(why) + "]", Decision: string(decision), Caller: by,
 	})
 	if err != nil {
 		return Denied, ReasonAuditError, fmt.Errorf("permissions: the audit log is unavailable, so the action was denied: %w", err)
@@ -245,6 +246,11 @@ func (b *Broker) Remembered(ctx context.Context, employeeID string) ([]store.Gra
 
 // Answer resolves a pending request.
 func (b *Broker) Answer(requestID string, allow bool, remember Remember) error {
+	return b.AnswerAs(requestID, allow, remember, "")
+}
+
+// AnswerAs is Answer that records who answered in the audit log.
+func (b *Broker) AnswerAs(requestID string, allow bool, remember Remember, by string) error {
 	b.mu.Lock()
 	p, ok := b.pending[requestID]
 	b.mu.Unlock()
@@ -252,7 +258,7 @@ func (b *Broker) Answer(requestID string, allow bool, remember Remember) error {
 		return ErrUnknownRequest
 	}
 	select {
-	case p.answer <- answer{allow: allow, remember: remember}:
+	case p.answer <- answer{allow: allow, remember: remember, by: by}:
 		return nil
 	default:
 		return ErrUnknownRequest // answered already

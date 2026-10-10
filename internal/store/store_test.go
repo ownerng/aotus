@@ -3,11 +3,13 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"aotus/internal/datadir"
 )
@@ -162,5 +164,61 @@ func TestOpenIsRepeatable(t *testing.T) {
 			t.Fatalf("open #%d: %v", i+1, err)
 		}
 		_ = s.Close()
+	}
+}
+
+func TestAccessListPersists(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	if role, _ := s.RoleOf(ctx, "ana@example.com"); role != RoleNone {
+		t.Fatalf("with no owner recorded nobody is served, got role %v", role)
+	}
+	if err := s.SetOwnerLogin(ctx, " Owner@Example.com "); err != nil {
+		t.Fatal(err)
+	}
+	if role, _ := s.RoleOf(ctx, "OWNER@example.com"); role != RoleOwner {
+		t.Fatalf("the owner (case-insensitive) must be the owner, got %v", role)
+	}
+	now := time.Now()
+	if err := s.AddAccess(ctx, "ana@example.com", "owner@example.com", "", now); !errors.Is(err, ErrAcknowledgementRequired) {
+		t.Fatalf("adding without the acknowledgement: %v", err)
+	}
+	if err := s.AddAccess(ctx, "owner@example.com", "x", "notice", now); !errors.Is(err, ErrIsOwner) {
+		t.Fatalf("adding the owner: %v", err)
+	}
+	if err := s.AddAccess(ctx, "Ana@Example.com", "owner@example.com", "I understand", now); err != nil {
+		t.Fatal(err)
+	}
+	if role, _ := s.RoleOf(ctx, "ana@example.com"); role != RoleGuest {
+		t.Fatalf("ana should be a guest, got %v", role)
+	}
+	list, _ := s.AccessList(ctx)
+	if len(list) != 1 || list[0].Login != "ana@example.com" || list[0].Notice != "I understand" {
+		t.Fatalf("list = %+v", list)
+	}
+	if ok, _ := s.ProfileShared(ctx, "p1", "ana@example.com"); ok {
+		t.Fatal("nothing is shared by default")
+	}
+	// The access list and the owner survive reopening the database.
+	if err := s.RemoveAccess(ctx, "ana@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if role, _ := s.RoleOf(ctx, "ana@example.com"); role != RoleNone {
+		t.Fatalf("removed, got %v", role)
+	}
+}
+
+func TestAuditRowCarriesCaller(t *testing.T) {
+	ctx := WithCaller(context.Background(), "ana@example.com (laptop)")
+	s := openTemp(t)
+	if _, err := s.AppendAudit(ctx, AuditRow{Kind: "employee", Action: "created"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendAudit(context.Background(), AuditRow{Kind: "employee", Action: "daemon thing"}); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := s.Audit(context.Background(), "", 0)
+	if len(rows) != 2 || rows[0].Caller != "ana@example.com (laptop)" || rows[1].Caller != "" {
+		t.Fatalf("rows = %+v", rows)
 	}
 }

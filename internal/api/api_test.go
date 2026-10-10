@@ -32,7 +32,7 @@ func TestRequiresToken(t *testing.T) {
 	}
 	for _, pattern := range routes {
 		method, path, _ := strings.Cut(pattern, " ")
-		path = strings.NewReplacer("{id}", "x", "{fact}", "1").Replace(path)
+		path = strings.NewReplacer("{id}", "x", "{fact}", "1", "{login}", "ana@example.com").Replace(path)
 		for name, tweak := range attempts {
 			req, _ := http.NewRequestWithContext(context.Background(), method, a.URL+path, nil)
 			tweak(req)

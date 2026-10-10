@@ -185,6 +185,35 @@ var migrations = []Migration{
 		VALUES ('removed', '(removed profile)', 'removed', '', '', '1970-01-01T00:00:00Z');
 		`,
 	},
+	{
+		Version: 7,
+		Name:    "remote_access",
+		SQL: `
+		-- Who did it. The audit table refuses UPDATE and DELETE, but adding a
+		-- column is fine: old rows keep the empty default (they were local).
+		ALTER TABLE audit_log ADD COLUMN caller TEXT NOT NULL DEFAULT '';
+
+		-- Tailnet logins that may call the daemon besides its owner (the owner is
+		-- kept in app_meta). A person who is not the owner is only added with an
+		-- acknowledgement about sharing a provider subscription (rule S2, S6).
+		CREATE TABLE access_list (
+			login        TEXT PRIMARY KEY,
+			added_at     TEXT NOT NULL,
+			added_by     TEXT NOT NULL,
+			notice       TEXT NOT NULL,
+			acknowledged INTEGER NOT NULL CHECK (acknowledged = 1)
+		) STRICT;
+
+		-- The owner's confirmation that one person may use one profile.
+		CREATE TABLE profile_shares (
+			profile_id   TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+			login        TEXT NOT NULL,
+			confirmed_at TEXT NOT NULL,
+			confirmed_by TEXT NOT NULL,
+			PRIMARY KEY (profile_id, login)
+		) STRICT;
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,

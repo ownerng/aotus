@@ -1,6 +1,6 @@
 # Daemon API
 
-The daemon (`aotusd`) serves this API on loopback. It is the only contract between the daemon and its clients (the desktop app, the `aotus` command). Everything here is implemented in `internal/api` and covered by its tests.
+The daemon (`aotusd`) serves this API on loopback and, when started with the tailnet option (phase 2, ADR 0014), on its Tailscale address. It is the only contract between the daemon and its clients (the desktop app, the `aotus` command). Everything here is implemented in `internal/api` and covered by its tests.
 
 ## Connecting
 
@@ -17,6 +17,25 @@ Base path: `/api/v1`. Bodies are JSON (`Content-Type: application/json`), at mos
 | The `Host` header must name this computer (`127.0.0.1`, `localhost`, `[::1]`, any port). This stops DNS rebinding. | `403 bad_host` |
 | A request carrying an `Origin` header is refused (programs send none; web pages always do). An operator may allow-list origins in the daemon's configuration. | `403 bad_origin` |
 | A valid bearer token. | `401 unauthorized` with `WWW-Authenticate: Bearer` |
+
+### Remote callers (tailnet listener)
+
+Remote callers are authenticated by their Tailscale identity instead of the token.
+
+The same API is served to other devices of the owner's tailnet. There the rules differ, and the two ways in never mix:
+
+| Rule | Result when broken |
+| --- | --- |
+| Identity comes only from the connection: the daemon asks the Tailscale on its machine who the peer is, before the first byte is read. **No header is ever trusted for identity**, and the bearer token is not used (and not accepted) on this path. A device Tailscale cannot tie to a person (for example a tagged server) never gets a connection. | connection closed |
+| The `Host` header must be one of the daemon's tailnet names (MagicDNS name, short name or tailnet address). | `403 bad_host` |
+| `Origin` is refused as above. | `403 bad_origin` |
+| The login must be the owner's or be on the **allow-list**. Refusals are written to the audit log with the caller. | `403 not_allowed` |
+
+The token path is the mirror image: on loopback, identity headers are ignored and the token is required.
+
+Roles: the **owner** (the login recorded when the daemon was set up for remote use, and anyone holding the local token) can do everything. A **guest** (on the allow-list) can read everything, but can use an employee (turns, terminals, approvals, memory writes, pause, delete, create) **only on a profile the owner shared with them**, and cannot manage profiles, subscriptions' logins, remembered permissions or the allow-list: `403 owner_only` and `403 profile_not_shared`.
+
+Every audit row records the **caller**: `login (device)` for a tailnet caller, `local` for the token, empty for what the daemon did on its own. An approval answer is recorded as the person who gave it.
 
 No response carries CORS headers, and `OPTIONS` preflights fail. Responses have `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
 
@@ -78,7 +97,7 @@ A profile is how to reach one subscription: which official CLI, with its own iso
 | `POST /employees/{id}/interrupt` | Ask politely (Ctrl+C). `204`. |
 | `GET /employees/{id}/history?limit=&before=` | Turns, newest first. `before` is an RFC 3339 `started_at`: pass the oldest one you have to load the page behind it. Each: `id, employee_id, prompt, state, error, started_at, ended_at, cost_usd, input_tokens, output_tokens`. States: `queued, running, completed, canceled, failed, interrupted`. |
 | `GET /turns/{id}/events` | The stored events of a turn, in order (`seq`, `kind`, ...). Consecutive text is one entry. |
-| `GET /employees/{id}/audit` | The employee's audit log, oldest first. |
+| `GET /employees/{id}/audit` | The employee's audit log, oldest first: `at, kind, action, detail, decision, caller`. |
 
 At most 4 turns run at once across all employees (configurable); the rest wait their turn in line, in the order they were sent.
 
@@ -103,6 +122,19 @@ At most 4 turns run at once across all employees (configurable); the rest wait t
 | `approval` | `approval`: `{id, employee_id, kind, target}`: an action waits for the user (see Approvals). |
 
 A client that cannot keep up (more than 256 updates behind) is closed with status 1013 ("try again later"): reconnect and reload what it missed from the history. The agents are never slowed down by a viewer.
+
+### Access (who may call remotely; owner only)
+
+| Route | |
+| --- | --- |
+| `GET /me` | Who the daemon thinks you are: `{method, login, device, role}` (`role` is `owner` or `guest`). Any caller. |
+| `GET /access` | `{owner, entries: [{login, added_at, added_by, profiles}], sharing_notice}`. `profiles` are the profile IDs shared with that person. |
+| `POST /access` | `{login, acknowledged}`. Adds a person to the allow-list. **`acknowledged` must be `true`**: `400 acknowledgement_required` otherwise, and the error carries the notice to show. The exact notice text is stored with the entry. `409 is_owner` for the owner's own login. Logins are compared case-insensitively. |
+| `DELETE /access/{login}` | Removes the person and everything shared with them. |
+| `POST /profiles/{id}/shares` | `{login}`. The owner lets that person use the profile (they must be on the list first: `400 not_on_list`). Nothing is shared by default. |
+| `DELETE /profiles/{id}/shares/{login}` | Withdraws it. |
+
+Why the acknowledgement: letting another person use your Claude or ChatGPT subscription can break the provider's terms (`docs/research/provider-terms.md`, rule S2). Aotus cannot check it, so the owner says in a stored act that they understand.
 
 ### Approvals and remembered decisions
 

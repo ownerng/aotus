@@ -94,7 +94,7 @@
     "id": "P2-003",
     "phase": 2,
     "title": "API: remote authentication, allow-list and audit of who did what",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-002"
     ],
@@ -148,7 +148,8 @@
     "docs": [
       "docs/SECURITY.md",
       "docs/research/provider-terms.md"
-    ]
+    ],
+    "completed_at": "2026-10-10"
   },
   {
     "id": "P2-004",
