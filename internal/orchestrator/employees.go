@@ -88,7 +88,7 @@ func New(st *store.Store, ws *workspace.Manager) *Service {
 // the operating system credential store and the profile only names it.
 func (s *Service) AddProfile(ctx context.Context, p provider.Profile) error {
 	if err := p.Validate(s.st.Layout()); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrInvalidProfile, err)
 	}
 	if err := p.EnsureConfigDir(); err != nil {
 		return err

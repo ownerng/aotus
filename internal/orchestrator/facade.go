@@ -66,6 +66,8 @@ var (
 	ErrNoKeyStore = errors.New("no credential store is configured")
 	// ErrNoLogin means the profile's provider has no login flow.
 	ErrNoLogin = errors.New("this kind of profile has no login flow")
+	// ErrInvalidProfile means a profile field is missing or not allowed.
+	ErrInvalidProfile = errors.New("invalid profile")
 )
 
 // NewProfile is the input of CreateProfile.
@@ -85,9 +87,16 @@ func (m *Manager) CreateProfile(ctx context.Context, in NewProfile) (provider.Pr
 	if _, ok := m.providers[in.Kind]; !ok {
 		return provider.Profile{}, fmt.Errorf("%w: %s", ErrNoProvider, in.Kind)
 	}
+	if in.Binary == "" && provider.HasCLI(in.Kind) {
+		bin, err := m.opts.FindCLI(in.Kind)
+		if err != nil {
+			return provider.Profile{}, err
+		}
+		in.Binary = bin
+	}
 	p, err := provider.NewProfile(m.st.Layout(), in.Kind, in.Name, in.Binary)
 	if err != nil {
-		return provider.Profile{}, err
+		return provider.Profile{}, fmt.Errorf("%w: %w", ErrInvalidProfile, err)
 	}
 	p.Mode, p.Model, p.BaseURL, p.ExtraEnv = in.Mode, in.Model, in.BaseURL, in.ExtraEnv
 	if in.Kind == provider.KindOpenAI {

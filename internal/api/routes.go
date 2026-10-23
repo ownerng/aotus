@@ -79,6 +79,8 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 		{orchestrator.ErrNoProfile, http.StatusNotFound, "profile_not_found"},
 		{orchestrator.ErrNameTaken, http.StatusConflict, "name_taken"},
 		{orchestrator.ErrInvalid, http.StatusBadRequest, "invalid"},
+		{orchestrator.ErrInvalidProfile, http.StatusBadRequest, "invalid"},
+		{orchestrator.ErrCLINotInstalled, http.StatusBadRequest, "cli_not_installed"},
 		{orchestrator.ErrBusy, http.StatusConflict, "busy"},
 		{orchestrator.ErrPaused, http.StatusConflict, "paused"},
 		{orchestrator.ErrNotTerminal, http.StatusConflict, "not_terminal"},

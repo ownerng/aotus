@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/coder/websocket"
 
+	"aotus/internal/orchestrator"
+	"aotus/internal/provider"
 	"aotus/internal/provider/providertest"
 )
 
@@ -547,4 +550,23 @@ func TestMemoryOverAPI(t *testing.T) {
 	a.call(t, "DELETE", "/api/v1/employees/"+other+"/memory/facts/"+itoa(created.ID), nil, 404, nil)
 	a.call(t, "DELETE", "/api/v1/employees/"+emp+"/memory/facts/"+itoa(created.ID), nil, 204, nil)
 	a.call(t, "DELETE", "/api/v1/employees/"+emp+"/memory/facts/abc", nil, 400, nil)
+}
+
+func TestProfileErrorsAreBadRequests(t *testing.T) {
+	missing := fmt.Errorf("%w: Claude Code (claude) was not found on the daemon's PATH; install it, or give the path of its binary", provider.ErrCLINotInstalled)
+	a := newAPIWith(t, orchestrator.Options{FindCLI: func(provider.Kind) (string, error) { return "", missing }})
+	for _, tc := range []struct {
+		name     string
+		body     map[string]any
+		code     string
+		mentions string
+	}{
+		{"CLI not found", map[string]any{"kind": "claude", "name": "main"}, "cli_not_installed", "give the path"},
+		{"unusable name", map[string]any{"kind": "claude", "name": "!!!", "binary": "/usr/bin/claude"}, "invalid", "no usable characters"},
+	} {
+		resp, b := a.raw(t, "POST", "/api/v1/profiles", token, tc.body, nil)
+		if resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(b), `"code":"`+tc.code+`"`) || !strings.Contains(string(b), tc.mentions) {
+			t.Errorf("%s: POST /profiles = %d %s; want 400 %s saying %q", tc.name, resp.StatusCode, b, tc.code, tc.mentions)
+		}
+	}
 }

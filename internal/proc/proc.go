@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -194,6 +195,21 @@ func closeAll(files ...*os.File) {
 	for _, f := range files {
 		_ = f.Close()
 	}
+}
+
+// LookPath finds a program the way Start does: a bare name on PATH, or a path
+// checked directly (with the executable extensions on Windows). It returns an
+// absolute path; a miss wraps ErrBinaryNotFound.
+func LookPath(file string) (string, error) {
+	p, err := exec.LookPath(file)
+	if err != nil {
+		return "", fmt.Errorf("proc: %q: %w: %w", file, ErrBinaryNotFound, err)
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", fmt.Errorf("proc: %q: %w", file, err)
+	}
+	return abs, nil
 }
 
 func startError(path string, err error) error {

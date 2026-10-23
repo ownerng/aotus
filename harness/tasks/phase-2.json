@@ -530,7 +530,7 @@
     "id": "P2-011",
     "phase": 2,
     "title": "Linking a subscription finds the official CLI by itself",
-    "status": "todo",
+    "status": "done",
     "requirements": [
       "F1",
       "F16"
@@ -576,7 +576,8 @@
     ],
     "docs": [
       "docs/DECISIONS/0008-provider-integration-and-profiles.md"
-    ]
+    ],
+    "completed_at": "2026-10-23"
   },
   {
     "id": "P2-012",

@@ -54,6 +54,9 @@ type Options struct {
 	// TerminalRows and TerminalCols are the size used when the terminal is
 	// started without a viewer, for example after a daemon restart.
 	TerminalRows, TerminalCols uint16
+	// FindCLI locates the official CLI of a profile created without a path
+	// (default provider.FindCLI).
+	FindCLI func(provider.Kind) (string, error)
 }
 
 func (o Options) withDefaults() Options {
@@ -74,6 +77,9 @@ func (o Options) withDefaults() Options {
 	}
 	if o.TerminalCols == 0 {
 		o.TerminalCols = 80
+	}
+	if o.FindCLI == nil {
+		o.FindCLI = provider.FindCLI
 	}
 	return o
 }

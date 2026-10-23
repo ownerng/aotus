@@ -70,6 +70,12 @@ type testAPI struct {
 
 func newAPI(t *testing.T, allowed ...string) *testAPI {
 	t.Helper()
+	return newAPIWith(t, orchestrator.Options{}, allowed...)
+}
+
+// newAPIWith is newAPI with manager options (the key store is always memKeys).
+func newAPIWith(t *testing.T, opts orchestrator.Options, allowed ...string) *testAPI {
+	t.Helper()
 	l := datadir.Layout{Root: filepath.Join(t.TempDir(), "aotus")}
 	st, err := store.Open(context.Background(), l)
 	if err != nil {
@@ -77,11 +83,12 @@ func newAPI(t *testing.T, allowed ...string) *testAPI {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	keys := &memKeys{}
+	opts.Keys = keys
 	mgr := orchestrator.NewManager(orchestrator.New(st, workspace.New(l)), map[provider.Kind]provider.Provider{
 		provider.KindClaude: provider.Claude{},
 		provider.KindCodex:  provider.Codex{},
 		provider.KindOpenAI: provider.OpenAICompat{Keys: keys.Get},
-	}, orchestrator.Options{Keys: keys})
+	}, opts)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
