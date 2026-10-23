@@ -98,6 +98,9 @@ func (m *Manager) CreateProfile(ctx context.Context, in NewProfile) (provider.Pr
 	if err != nil {
 		return provider.Profile{}, fmt.Errorf("%w: %w", ErrInvalidProfile, err)
 	}
+	if in.Mode == "" {
+		in.Mode = provider.DefaultMode(in.Kind)
+	}
 	p.Mode, p.Model, p.BaseURL, p.ExtraEnv = in.Mode, in.Model, in.BaseURL, in.ExtraEnv
 	if in.Kind == provider.KindOpenAI {
 		p.APIKeyRef = "profile/" + p.ID + "/api-key"

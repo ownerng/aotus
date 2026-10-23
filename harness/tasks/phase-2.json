@@ -611,7 +611,7 @@
     "id": "P2-013",
     "phase": 2,
     "title": "Choose how a subscription runs when linking it (chat or terminal)",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-011"
     ],
@@ -647,8 +647,9 @@
         "file": "cmd/aotus-desktop/frontend/src/lib/Profiles.svelte",
         "contains": [
           "defaultMode",
-          "structured",
-          "terminal"
+          "modeChoices",
+          "How it works",
+          "needsNotice"
         ]
       }
     ],
@@ -659,7 +660,8 @@
     ],
     "docs": [
       "docs/research/provider-terms.md"
-    ]
+    ],
+    "completed_at": "2026-10-23"
   },
   {
     "id": "P2-014",

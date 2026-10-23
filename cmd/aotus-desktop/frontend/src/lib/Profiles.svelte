@@ -2,8 +2,10 @@
   import { Backend } from "../../bindings/aotus/cmd/aotus-desktop";
   import { app } from "./store.svelte";
   import TerminalView from "./TerminalView.svelte";
+  import { defaultMode, modeChoices, needsNotice } from "./profiles";
 
   let kind = $state("claude");
+  let mode = $state(defaultMode("claude"));
   let name = $state("");
   let apiKey = $state("");
   let model = $state("");
@@ -16,7 +18,7 @@
   async function add() {
     error = ""; busy = true;
     try {
-      const p = await Backend.CreateProfile({ kind, name: name.trim(), mode: kind === "claude" ? "terminal" : kind === "codex" ? "terminal" : "api", model, base_url: baseURL } as any);
+      const p = await Backend.CreateProfile({ kind, name: name.trim(), mode, model, base_url: baseURL } as any);
       if (kind === "openai-api" && apiKey) await Backend.SetAPIKey(p.id, apiKey);
       name = ""; apiKey = ""; model = ""; baseURL = "";
       await app.refreshAll();
@@ -55,7 +57,7 @@
           <button class="danger" onclick={() => remove(p.id)}>Remove</button>
         </div>
         {#if detail[p.id]}<div class="muted tray-note" style="margin-top:6px">{detail[p.id]}</div>{/if}
-        {#if p.kind === "claude" && !p.accepted_notices?.includes("claude-headless") && p.mode === "structured"}
+        {#if needsNotice(p.kind, p.mode) && !p.accepted_notices?.includes("claude-headless")}
           <div class="banner" style="margin:8px 0 0">Headless mode uses the CLI's non-interactive mode; read the provider's terms first. <button onclick={() => accept(p.id)}>I understand</button></div>
         {/if}
       </div>
@@ -66,13 +68,20 @@
     <h2 style="margin-top:20px">Link a subscription</h2>
     <div class="card">
       <label for="k">Provider</label>
-      <select id="k" bind:value={kind}>
+      <select id="k" bind:value={kind} onchange={() => (mode = defaultMode(kind))}>
         <option value="claude">Claude Code (Claude subscription)</option>
         <option value="codex">Codex CLI (ChatGPT subscription)</option>
         <option value="openai-api">OpenAI-compatible API (key)</option>
       </select>
       <label for="n">Name</label>
       <input id="n" bind:value={name} placeholder="e.g. Personal Claude" />
+      {#if kind !== "openai-api"}
+        <label for="md">How it works</label>
+        <select id="md" bind:value={mode}>
+          {#each modeChoices(kind) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+        </select>
+        {#if needsNotice(kind, mode)}<p class="muted">After linking, you will be asked to read and accept a notice about this mode.</p>{/if}
+      {/if}
       {#if kind === "openai-api"}
         <label for="u">Base URL</label><input id="u" bind:value={baseURL} placeholder="https://api.openai.com/v1" />
         <label for="m">Model</label><input id="m" bind:value={model} />

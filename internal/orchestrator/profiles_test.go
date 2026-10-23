@@ -58,3 +58,27 @@ func TestCreateProfileWithoutTheCLIExplainsWhy(t *testing.T) {
 		t.Fatalf("CreateProfile with an unusable name: %v; want ErrInvalidProfile", err)
 	}
 }
+
+func TestCreateProfileStoresTheDefaultMode(t *testing.T) {
+	r := newRig(t, Options{FindCLI: func(k provider.Kind) (string, error) { return "/opt/found/" + string(k), nil }})
+	ctx := context.Background()
+	for _, tc := range []struct {
+		kind provider.Kind
+		mode provider.Mode
+		want provider.Mode
+	}{
+		{provider.KindCodex, "", provider.ModeStructured},
+		{provider.KindClaude, "", provider.ModeTerminal},
+		{provider.KindClaude, provider.ModeStructured, provider.ModeStructured},
+		{provider.KindCodex, provider.ModeTerminal, provider.ModeTerminal},
+	} {
+		p, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: tc.kind, Name: string(tc.kind) + "-" + string(tc.mode), Mode: tc.mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		stored, err := r.svc.Profile(ctx, p.ID)
+		if err != nil || stored.Mode != tc.want {
+			t.Errorf("%s profile created with mode %q is stored as %q, %v; want %q", tc.kind, tc.mode, stored.Mode, err, tc.want)
+		}
+	}
+}

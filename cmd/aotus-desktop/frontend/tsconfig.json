@@ -16,4 +16,6 @@
     "isolatedModules": true
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "bindings"],
+  // Tests run with node's own runner (npm test), which strips the types.
+  "exclude": ["src/**/*.test.ts"],
 }

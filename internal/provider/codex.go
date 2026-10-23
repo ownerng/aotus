@@ -46,7 +46,7 @@ func (c Codex) Preflight(ctx context.Context, p Profile) error {
 
 // Start implements Provider. Codex CLI's default mode is structured.
 func (c Codex) Start(_ context.Context, req SessionRequest) (Session, error) {
-	switch mode := firstMode(req.Mode, req.Profile.Mode, ModeStructured); mode {
+	switch mode := firstMode(req.Mode, req.Profile.Mode, DefaultMode(KindCodex)); mode {
 	case ModeStructured:
 		return NewProcessSession(ModeStructured, codexDialect{lookup: c.lookup()}, req), nil
 	case ModeTerminal:

@@ -61,7 +61,7 @@ func (c Claude) Preflight(ctx context.Context, p Profile) error {
 // Decision). Structured mode runs `claude -p` and needs the user to have
 // accepted a notice.
 func (c Claude) Start(_ context.Context, req SessionRequest) (Session, error) {
-	switch mode := firstMode(req.Mode, req.Profile.Mode, ModeTerminal); mode {
+	switch mode := firstMode(req.Mode, req.Profile.Mode, DefaultMode(KindClaude)); mode {
 	case ModeTerminal:
 		if !proc.PTYSupported() {
 			return nil, fmt.Errorf("%w: the terminal mode is not available on this platform yet", ErrUnsupportedMode)

@@ -61,7 +61,7 @@ func (o OpenAICompat) Detect(_ context.Context, p Profile) (Detection, error) {
 
 // Start implements Provider.
 func (o OpenAICompat) Start(_ context.Context, req SessionRequest) (Session, error) {
-	if m := firstMode(req.Mode, req.Profile.Mode, ModeAPI); m != ModeAPI {
+	if m := firstMode(req.Mode, req.Profile.Mode, DefaultMode(KindOpenAI)); m != ModeAPI {
 		return nil, fmt.Errorf("%w: the API adapter only supports %q, not %q", ErrUnsupportedMode, ModeAPI, m)
 	}
 	if firstNonEmpty(req.Model, req.Profile.Model) == "" {

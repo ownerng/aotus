@@ -21,6 +21,21 @@ const (
 	KindOpenAI Kind = "openai-api"
 )
 
+// DefaultMode is how a kind of profile runs when the user does not choose:
+// Codex CLI structured and Claude Code terminal, as docs/research/provider-terms.md
+// (Decision) sets; Claude's structured mode is behind a notice.
+func DefaultMode(k Kind) Mode {
+	switch k {
+	case KindClaude:
+		return ModeTerminal
+	case KindCodex:
+		return ModeStructured
+	case KindOpenAI:
+		return ModeAPI
+	}
+	return ""
+}
+
 // Profile is how to reach one subscription (ADR 0008). It holds no secrets:
 // the login lives inside the CLI's own configuration directory, which Aotus
 // never opens, and an API key is only referenced by name in the operating
