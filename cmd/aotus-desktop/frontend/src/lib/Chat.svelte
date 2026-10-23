@@ -36,6 +36,8 @@
           <div class="tool">{item.text}</div>
         {:else if item.kind === "error"}
           <div class="body err">{item.text}</div>
+        {:else if item.kind === "status"}
+          <div class="muted">{item.text}</div>
         {:else}
           <button class="ghost" onclick={() => app.showAnswer(item)}>{item.text}</button>
         {/if}

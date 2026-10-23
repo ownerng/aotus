@@ -697,7 +697,7 @@
     "id": "P2-015",
     "phase": 2,
     "title": "The chat shows that a turn was stopped",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-013"
     ],
@@ -721,6 +721,7 @@
     ],
     "paths": [
       "cmd/aotus-desktop/frontend/"
-    ]
+    ],
+    "completed_at": "2026-10-23"
   }
 ]

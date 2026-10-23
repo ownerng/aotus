@@ -3,6 +3,7 @@ import { Backend, Shell } from "../../bindings/aotus/cmd/aotus-desktop";
 import type { DaemonState, Settings } from "../../bindings/aotus/cmd/aotus-desktop";
 import type { Approval, Employee, Profile, Turn, Update, Event as Ev } from "../../bindings/aotus/internal/client/models";
 import type { ChatItem } from "./types";
+import { applyEvent, endTurn, markPending } from "./chat";
 
 export type View = "chat" | "terminal" | "profiles" | "new-employee" | "approvals" | "settings" | "connections";
 
@@ -129,6 +130,7 @@ class AppState {
       const events = (await Backend.TurnEvents(t.id)) as Ev[];
       for (const ev of events) applyEvent(out, t.id, ev);
       if (t.state === "running" || t.state === "queued") markPending(out, t.id);
+      else return endTurn(out, t.id, t.state);
     } else {
       out.push({ key: t.id + ":m", turnId: t.id, kind: "note", text: "Show the answer", more: true });
     }
@@ -167,7 +169,7 @@ class AppState {
       applyEvent(next, u.turn_id, u.event);
       this.chat = next;
     } else if (u.kind === "turn_ended") {
-      this.chat = this.chat.map((c) => (c.turnId === u.turn_id && c.pending ? { ...c, pending: false } : c));
+      this.chat = endTurn(this.chat, u.turn_id, u.state);
     }
   }
 
@@ -175,50 +177,6 @@ class AppState {
     await Shell.SaveSettings(s);
     this.settings = s;
   }
-}
-
-// applyEvent folds one provider event into the list of chat lines.
-export function applyEvent(items: ChatItem[], turnId: string, ev: Ev) {
-  const last = items[items.length - 1];
-  switch (ev.kind) {
-    case "text":
-      if (last && last.kind === "assistant" && last.turnId === turnId) {
-        items[items.length - 1] = { ...last, text: last.text + ev.text, pending: true };
-      } else {
-        items.push({ key: `${turnId}:a${items.length}`, turnId, kind: "assistant", text: ev.text, pending: true });
-      }
-      break;
-    case "tool_request":
-      items.push({ key: `${turnId}:t${ev.tool_id || items.length}`, turnId, kind: "tool", text: `${ev.tool_name} ${toolArgs(ev)}` });
-      break;
-    case "tool_result":
-      items.push({ key: `${turnId}:r${items.length}`, turnId, kind: "tool", text: (ev.tool_error ? "failed: " : "→ ") + clip(ev.tool_output, 300) });
-      break;
-    case "error":
-      items.push({ key: `${turnId}:e${items.length}`, turnId, kind: "error", text: ev.text });
-      break;
-    case "done":
-      for (let i = 0; i < items.length; i++) if (items[i].turnId === turnId && items[i].pending) items[i] = { ...items[i], pending: false };
-      break;
-  }
-}
-
-function markPending(items: ChatItem[], turnId: string) {
-  const i = items.map((c) => c.turnId + c.kind).lastIndexOf(turnId + "assistant");
-  if (i >= 0) items[i] = { ...items[i], pending: true };
-  else items.push({ key: turnId + ":a", turnId, kind: "assistant", text: "", pending: true });
-}
-
-function toolArgs(ev: Ev): string {
-  try {
-    return clip(typeof ev.tool_input === "string" ? ev.tool_input : JSON.stringify(ev.tool_input), 200);
-  } catch {
-    return "";
-  }
-}
-
-function clip(s: string, n: number): string {
-  return s && s.length > n ? s.slice(0, n) + "…" : (s ?? "");
 }
 
 export const app = new AppState();
