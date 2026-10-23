@@ -582,7 +582,7 @@
     "id": "P2-012",
     "phase": 2,
     "title": "make desktop builds on Linux",
-    "status": "todo",
+    "status": "done",
     "requirements": [
       "F16",
       "N8"
@@ -603,7 +603,8 @@
     ],
     "paths": [
       "Makefile"
-    ]
+    ],
+    "completed_at": "2026-10-23"
   },
   {
     "id": "P2-013",

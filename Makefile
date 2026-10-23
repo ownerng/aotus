@@ -40,8 +40,8 @@ report: ## regenerate docs/STATUS.md
 
 # The desktop app needs cgo, a C compiler and the WebView libraries (docs/QUICKSTART.md).
 # On Linux the GTK 3 tag is still required (ADR 0010).
-DESKTOP_TAGS := desktop$(if $(filter Linux,$(shell uname -s)),$(comma)gtk3,)
 comma := ,
+DESKTOP_TAGS := desktop$(if $(filter Linux,$(shell uname -s)),$(comma)gtk3,)
 
 .PHONY: frontend desktop desktop-test
 frontend: ## generate the TypeScript bindings and build the Svelte frontend
