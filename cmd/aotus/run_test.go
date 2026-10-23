@@ -230,3 +230,89 @@ func TestApprovalCommands(t *testing.T) {
 		t.Fatalf("answering twice: %d %q", code, errOut)
 	}
 }
+
+func TestFlagsAfterArguments(t *testing.T) {
+	r := startDaemon(t)
+	p := r.profile(t, "main", providertest.Hello)
+	if code, _, errOut := r.cli(t, "", "employee", "add", "--name", "Atlas", "--profile", p.ID); code != 0 {
+		t.Fatalf("employee add: %q", errOut)
+	}
+	if code, _, errOut := r.cli(t, "", "chat", "Atlas", "one"); code != 0 {
+		t.Fatalf("chat: %q", errOut)
+	}
+	if code, _, errOut := r.cli(t, "", "chat", "Atlas", "two"); code != 0 {
+		t.Fatalf("chat: %q", errOut)
+	}
+
+	for _, args := range [][]string{
+		{"history", "Atlas", "--limit", "1"},
+		{"history", "--limit", "1", "Atlas"},
+		{"history", "--limit=1", "--", "Atlas"},
+	} {
+		code, out, errOut := r.cli(t, "", args...)
+		if code != 0 || !strings.Contains(out, "two") || strings.Contains(out, "one") {
+			t.Errorf("aotus %v: code %d, %q %q; want only the last turn", args, code, out, errOut)
+		}
+	}
+
+	// A flag before the ID is a flag, not the ID: the daemon is asked about
+	// req-nope (not found, 1), never about "--remember" (and no usage error).
+	if code, _, errOut := r.cli(t, "", "deny", "--remember", "exact", "req-nope"); code != 1 || !strings.Contains(errOut, "not_found") {
+		t.Errorf("deny --remember exact req-nope: code %d, %q; want the daemon's not found", code, errOut)
+	}
+
+	// Words that are neither a flag nor an expected argument are refused, never dropped.
+	for _, args := range [][]string{
+		{"profile", "add", "--kind", "claude", "--name", "my", "work"},
+		{"employee", "add", "--name", "Bob", "extra", "--profile", p.ID},
+		{"history", "Atlas", "extra"},
+		{"approve", "req-1", "req-2"},
+	} {
+		if code, _, errOut := r.cli(t, "", args...); code != 2 {
+			t.Errorf("aotus %v: code %d, %q; want a usage error (2)", args, code, errOut)
+		}
+	}
+}
+
+func TestChatKeepsEveryWord(t *testing.T) {
+	r := startDaemon(t)
+	p := r.profile(t, "main", providertest.Hello)
+	if _, err := r.c.CreateEmployee(context.Background(), client.NewEmployee{Name: "Atlas", ProfileID: p.ID}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"chat", "Atlas", "--approve", "deny", "hello", "there"}, "hello there"},
+		{[]string{"chat", "Atlas", "say", "--approve", "deny", "pong", "please"}, "say pong please"},
+		{[]string{"chat", "Atlas", "what", "is", "new", "--approve", "deny", "today"}, "what is new today"},
+		{[]string{"chat", "Atlas", "--", "-v", "means", "--verbose"}, "-v means --verbose"},
+	} {
+		if code, _, errOut := r.cli(t, "", tc.args...); code != 0 {
+			t.Fatalf("aotus %v: code %d, %q", tc.args, code, errOut)
+		}
+		turns, err := r.c.History(context.Background(), mustEmployee(t, r, "Atlas"), 1, "")
+		if err != nil || len(turns) != 1 || turns[0].Prompt != tc.want {
+			t.Errorf("aotus %v sent %+v, %v; want the prompt %q", tc.args, turns, err, tc.want)
+		}
+	}
+	if code, _, _ := r.cli(t, "", "chat", "Atlas", "-v", "means", "verbose"); code != 2 {
+		t.Errorf("an unknown flag in a prompt without --: code %d; want a usage error (2), not a dropped word", code)
+	}
+}
+
+func mustEmployee(t *testing.T, r *rig, name string) string {
+	t.Helper()
+	es, err := r.c.Employees(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range es {
+		if e.Name == name {
+			return e.ID
+		}
+	}
+	t.Fatalf("no employee %q", name)
+	return ""
+}

@@ -667,7 +667,7 @@
     "id": "P2-014",
     "phase": 2,
     "title": "aotus accepts flags before or after its arguments",
-    "status": "todo",
+    "status": "done",
     "requirements": [
       "F2",
       "F3"
@@ -690,7 +690,8 @@
     ],
     "paths": [
       "cmd/aotus/"
-    ]
+    ],
+    "completed_at": "2026-10-23"
   },
   {
     "id": "P2-015",

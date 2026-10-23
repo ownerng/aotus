@@ -59,7 +59,8 @@ Approvals
   approve ID [--remember none|exact|kind]
   deny ID [--remember none|exact|kind]
 
-EMPLOYEE is a name or an ID. Exit code: 0 ok, 1 failed, 2 bad usage.
+EMPLOYEE is a name or an ID. Flags may come before or after the arguments; put -- before
+words that start with - (for example in a prompt). Exit code: 0 ok, 1 failed, 2 bad usage.
 `
 
 type app struct {
@@ -208,7 +209,6 @@ func (a *app) profile(args []string) error {
 	switch sub, rest := args[0], args[1:]; sub {
 	case "add":
 		fs := flag.NewFlagSet("profile add", flag.ContinueOnError)
-		fs.SetOutput(io.Discard)
 		var in client.NewProfile
 		fs.StringVar(&in.Kind, "kind", "", "")
 		fs.StringVar(&in.Name, "name", "", "")
@@ -216,7 +216,7 @@ func (a *app) profile(args []string) error {
 		fs.StringVar(&in.Mode, "mode", "", "")
 		fs.StringVar(&in.Model, "model", "", "")
 		fs.StringVar(&in.BaseURL, "base-url", "", "")
-		if err := fs.Parse(rest); err != nil || in.Kind == "" || in.Name == "" {
+		if pos, err := parseFlags(fs, rest); err != nil || len(pos) > 0 || in.Kind == "" || in.Name == "" {
 			return usageError{"usage: aotus profile add --kind claude|codex|openai-api --name NAME [--binary PATH] [--mode MODE] [--model MODEL]"}
 		}
 		p, err := a.c.CreateProfile(a.ctx, in)
@@ -311,13 +311,12 @@ func (a *app) employee(args []string) error {
 	sub, rest := args[0], args[1:]
 	if sub == "add" {
 		fs := flag.NewFlagSet("employee add", flag.ContinueOnError)
-		fs.SetOutput(io.Discard)
 		var in client.NewEmployee
 		fs.StringVar(&in.Name, "name", "", "")
 		fs.StringVar(&in.Role, "role", "", "")
 		fs.StringVar(&in.SystemPrompt, "prompt", "", "")
 		fs.StringVar(&in.ProfileID, "profile", "", "")
-		if err := fs.Parse(rest); err != nil || in.Name == "" || in.ProfileID == "" {
+		if pos, err := parseFlags(fs, rest); err != nil || len(pos) > 0 || in.Name == "" || in.ProfileID == "" {
 			return usageError{"usage: aotus employee add --name NAME --profile ID [--role ROLE] [--prompt TEXT]"}
 		}
 		e, err := a.c.CreateEmployee(a.ctx, in)
@@ -348,12 +347,12 @@ func (a *app) employee(args []string) error {
 
 func (a *app) history(args []string) error {
 	fs := flag.NewFlagSet("history", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
 	limit := fs.Int("limit", 10, "")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+	pos, err := parseFlags(fs, args)
+	if err != nil || len(pos) != 1 {
 		return usageError{"usage: aotus history EMPLOYEE [--limit N]"}
 	}
-	e, err := a.find(fs.Arg(0))
+	e, err := a.find(pos[0])
 	if err != nil {
 		return err
 	}
@@ -407,15 +406,31 @@ func (a *app) approvals() error {
 
 func (a *app) answer(allow bool, args []string) error {
 	fs := flag.NewFlagSet("approve", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
 	remember := fs.String("remember", "none", "")
-	// The ID comes first: `aotus approve req-1 --remember exact`.
-	if len(args) == 0 {
+	pos, err := parseFlags(fs, args)
+	if err != nil || len(pos) != 1 {
 		return usageError{"usage: aotus approve|deny ID [--remember none|exact|kind]"}
 	}
-	id := args[0]
-	if err := fs.Parse(args[1:]); err != nil {
-		return usageError{"usage: aotus approve|deny ID [--remember none|exact|kind]"}
+	return a.c.Answer(a.ctx, pos[0], allow, *remember)
+}
+
+// parseFlags parses flags wherever they appear among the arguments, the way
+// people type them (`aotus history Atlas --limit 3`), and returns the other
+// arguments in order. `--` ends the flags: everything after it is an argument.
+func parseFlags(fs *flag.FlagSet, args []string) ([]string, error) {
+	fs.SetOutput(io.Discard)
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		rest := fs.Args()
+		if len(rest) == 0 {
+			return pos, nil
+		}
+		if n := len(args) - len(rest); n > 0 && args[n-1] == "--" {
+			return append(pos, rest...), nil
+		}
+		pos, args = append(pos, rest[0]), rest[1:]
 	}
-	return a.c.Answer(a.ctx, id, allow, *remember)
 }

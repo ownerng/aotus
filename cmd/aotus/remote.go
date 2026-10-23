@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"strings"
 
 	"aotus/internal/client"
@@ -124,16 +123,12 @@ func (a *app) access(args []string) error {
 		return t.Flush()
 	case "allow":
 		fs := flag.NewFlagSet("access allow", flag.ContinueOnError)
-		fs.SetOutput(io.Discard)
 		ack := fs.Bool("acknowledge", false, "")
-		// The login comes first, then the flag.
-		if len(rest) == 0 {
+		pos, err := parseFlags(fs, rest)
+		if err != nil || len(pos) != 1 {
 			return usageError{"usage: aotus access allow LOGIN --acknowledge"}
 		}
-		login := rest[0]
-		if err := fs.Parse(rest[1:]); err != nil {
-			return usageError{"usage: aotus access allow LOGIN --acknowledge"}
-		}
+		login := pos[0]
 		if !*ack {
 			acc, err := a.c.Access(a.ctx)
 			if err != nil {

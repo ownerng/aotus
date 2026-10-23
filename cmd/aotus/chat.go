@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -18,24 +17,14 @@ import (
 // are asked about on standard error, unless --approve=deny.
 func (a *app) chat(args []string) error {
 	fs := flag.NewFlagSet("chat", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
 	approve := fs.String("approve", "ask", "")
-	// The employee comes first: `aotus chat Atlas what is new --approve deny`.
-	if len(args) < 2 {
-		return usageError{"usage: aotus chat EMPLOYEE PROMPT... [--approve ask|deny]"}
+	// The employee comes first, then the prompt; --approve may go anywhere and
+	// `--` protects prompt words that start with "-".
+	pos, err := parseFlags(fs, args)
+	if err != nil || len(pos) < 2 {
+		return usageError{"usage: aotus chat EMPLOYEE PROMPT... [--approve ask|deny] (put -- before a prompt with words starting with -)"}
 	}
-	ref := args[0]
-	var words []string
-	rest := args[1:]
-	for i, w := range rest {
-		if strings.HasPrefix(w, "--") {
-			if err := fs.Parse(rest[i:]); err != nil {
-				return usageError{"usage: aotus chat EMPLOYEE PROMPT... [--approve ask|deny]"}
-			}
-			break
-		}
-		words = append(words, w)
-	}
+	ref, words := pos[0], pos[1:]
 	if *approve != "ask" && *approve != "deny" {
 		return usageError{`--approve takes "ask" or "deny"`}
 	}
