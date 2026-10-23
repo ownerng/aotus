@@ -525,5 +525,197 @@
     "docs": [
       "docs/VPS.md"
     ]
+  },
+  {
+    "id": "P2-011",
+    "phase": 2,
+    "title": "Linking a subscription finds the official CLI by itself",
+    "status": "todo",
+    "requirements": [
+      "F1",
+      "F16"
+    ],
+    "description": "End-to-end walk through the desktop UI with Playwright on 2026-10-23 (Wails server mode, a fake CLI replaying the recorded Claude fixture, and the real claude for detection and login). Linking a Claude Code or Codex subscription from the desktop app always failed: the app sends no binary path and the daemon requires one (\"profile ... needs the path of the CLI\"), and the API answered 500 \"internal\" instead of saying why. ADR 0008 says the CLI is found on PATH or chosen by the user. When no path is given, the daemon looks the CLI up on its PATH and then in the folders the official installers use (a daemon started at login may have a shorter PATH than a shell), stores the absolute path, and answers 400 with an actionable message when it is not found. Profile validation errors and a missing CLI are client errors (400), never 500.",
+    "acceptance": [
+      "Linking Claude Code or Codex from the app without a path works when the CLI is installed",
+      "When the CLI is missing, the app shows which CLI was not found and what to do",
+      "Invalid profile input is a 400 with the reason, not a 500"
+    ],
+    "checks": [
+      {
+        "name": "provider tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestFindCLIUsesPathThenInstallFolders",
+          "TestFindCLIReportsWhatIsMissing"
+        ]
+      },
+      {
+        "name": "orchestrator tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestCreateProfileFindsTheCLI",
+          "TestCreateProfileWithoutTheCLIExplainsWhy"
+        ]
+      },
+      {
+        "name": "api tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestProfileErrorsAreBadRequests"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/proc/",
+      "internal/provider/",
+      "internal/orchestrator/",
+      "internal/api/",
+      "cmd/aotusd/",
+      "docs/API.md"
+    ],
+    "docs": [
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md"
+    ]
+  },
+  {
+    "id": "P2-012",
+    "phase": 2,
+    "title": "make desktop builds on Linux",
+    "status": "todo",
+    "requirements": [
+      "F16",
+      "N8"
+    ],
+    "description": "End-to-end walk through the desktop UI with Playwright on 2026-10-23 (Wails server mode, a fake CLI replaying the recorded Claude fixture, and the real claude for detection and login). `make desktop` failed on Linux: the Makefile used the variable `comma` one line before defining it, so the tags became `desktopgtk3`, the bindings were not generated and the frontend did not build. CI builds the app with its own commands, so it did not notice. Define the variable first.",
+    "acceptance": [
+      "make frontend and make desktop pass the tags desktop,gtk3 on Linux"
+    ],
+    "checks": [
+      {
+        "name": "desktop tags",
+        "cmd": [
+          "sh",
+          "-c",
+          "make -n frontend desktop | grep -q -- '-tags desktop' && ! make -n frontend desktop | grep -q desktopgtk3"
+        ]
+      }
+    ],
+    "paths": [
+      "Makefile"
+    ]
+  },
+  {
+    "id": "P2-013",
+    "phase": 2,
+    "title": "Choose how a subscription runs when linking it (chat or terminal)",
+    "status": "todo",
+    "depends_on": [
+      "P2-011"
+    ],
+    "requirements": [
+      "F1",
+      "F3",
+      "F16"
+    ],
+    "description": "End-to-end walk through the desktop UI with Playwright on 2026-10-23 (Wails server mode, a fake CLI replaying the recorded Claude fixture, and the real claude for detection and login). The app linked every Claude Code and Codex subscription in terminal mode, so the streamed chat could not be reached from the app, and Codex did not get the structured default that docs/research/provider-terms.md (Decision) sets. The link form gets a choice between chat (structured) and terminal, preselected with each provider's default (Codex structured, Claude Code terminal); Claude's structured mode stays behind its notice. The daemon stores the provider's default mode when none is given, so every profile shows its mode. The frontend logic is covered by node's built-in test runner, with no new dependency.",
+    "acceptance": [
+      "The link form offers chat or terminal, with the provider's default preselected",
+      "A profile created without a mode stores its provider's default",
+      "Claude structured still needs the notice"
+    ],
+    "checks": [
+      {
+        "name": "orchestrator tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestCreateProfileStoresTheDefaultMode"
+        ]
+      },
+      {
+        "name": "frontend tests",
+        "cmd": [
+          "node",
+          "--test",
+          "cmd/aotus-desktop/frontend/src/lib/profiles.test.ts"
+        ]
+      },
+      {
+        "name": "link form",
+        "file": "cmd/aotus-desktop/frontend/src/lib/Profiles.svelte",
+        "contains": [
+          "defaultMode",
+          "structured",
+          "terminal"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/frontend/",
+      "internal/provider/",
+      "internal/orchestrator/"
+    ],
+    "docs": [
+      "docs/research/provider-terms.md"
+    ]
+  },
+  {
+    "id": "P2-014",
+    "phase": 2,
+    "title": "aotus accepts flags before or after its arguments",
+    "status": "todo",
+    "requirements": [
+      "F2",
+      "F3"
+    ],
+    "description": "End-to-end walk through the desktop UI with Playwright on 2026-10-23 (Wails server mode, a fake CLI replaying the recorded Claude fixture, and the real claude for detection and login). The usage text shows `aotus history EMPLOYEE [--limit N]`, but a flag after the employee was refused; `aotus chat Atlas --approve deny hello` said the prompt was empty, and in `aotus chat Atlas hello --approve deny more` the word `more` was silently dropped. Flags are accepted anywhere among the arguments of every command, `--` ends the flags, and no word is ever dropped.",
+    "acceptance": [
+      "Every command accepts its flags before or after its arguments",
+      "`--` ends the flags",
+      "No argument is silently dropped"
+    ],
+    "checks": [
+      {
+        "name": "cli tests",
+        "pkg": "./cmd/aotus",
+        "tests": [
+          "TestFlagsAfterArguments",
+          "TestChatKeepsEveryWord"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus/"
+    ]
+  },
+  {
+    "id": "P2-015",
+    "phase": 2,
+    "title": "The chat shows that a turn was stopped",
+    "status": "todo",
+    "depends_on": [
+      "P2-013"
+    ],
+    "requirements": [
+      "F3"
+    ],
+    "description": "End-to-end walk through the desktop UI with Playwright on 2026-10-23 (Wails server mode, a fake CLI replaying the recorded Claude fixture, and the real claude for detection and login). After Stop, the chat kept an empty answer bubble with nothing saying the turn was stopped, and after a reload the stopped turn looked like a prompt that was never answered. A canceled turn shows a short \"Stopped\" line in place of an empty answer, live and from the history. The chat folding logic moves to a plain TypeScript module tested with node's built-in runner.",
+    "acceptance": [
+      "A stopped turn shows Stopped, live and after a reload",
+      "No empty answer bubble is left behind"
+    ],
+    "checks": [
+      {
+        "name": "frontend tests",
+        "cmd": [
+          "node",
+          "--test",
+          "cmd/aotus-desktop/frontend/src/lib/chat.test.ts"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/frontend/"
+    ]
   }
 ]
