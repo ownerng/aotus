@@ -724,5 +724,58 @@
       "cmd/aotus-desktop/frontend/"
     ],
     "completed_at": "2026-10-23"
+  },
+  {
+    "id": "P2-016",
+    "phase": 2,
+    "title": "Desktop redesign: a calm monochrome visual language",
+    "status": "done",
+    "requirements": [
+      "F16"
+    ],
+    "description": "The owner finds the desktop UI generic (navy panels, an orange accent, uppercase labels). Grok Bot, the product that validated the category (docs/PRD.md), sets the reference: near-black surfaces, white primary buttons with black text, dark grey secondary buttons, no accent colour, large regular-weight system type, thin borders, generous rounded fields and list rows with an icon tile, title and grey description. Aotus takes that visual language, not Grok Bot's brand: no logo, mascot, name or artwork of theirs. Aotus gets its own mark (the night monkey's round eyes). Restyle every view (sidebar with employee avatars and plain-language status, header with segmented Chat/Terminal tabs, transcript and composer, subscriptions, new employee, approvals, connections, settings) with design tokens in one stylesheet, and record the rules in docs/DESIGN.md. Behaviour and the documented API do not change.",
+    "acceptance": [
+      "Every view uses the shared tokens; no accent colour outside status",
+      "docs/DESIGN.md records the visual language and that no Grok Bot asset is used",
+      "Frontend type check, tests and build pass; the desktop app builds"
+    ],
+    "checks": [
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "design doc",
+        "file": "docs/DESIGN.md",
+        "contains": [
+          "monochrome",
+          "tokens",
+          "Grok Bot",
+          "no logo"
+        ]
+      },
+      {
+        "name": "desktop builds",
+        "cmd": [
+          "go",
+          "build",
+          "-tags",
+          "desktop,gtk3",
+          "./cmd/aotus-desktop"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/frontend/",
+      "docs/DESIGN.md"
+    ],
+    "docs": [
+      "docs/PRD.md"
+    ],
+    "completed_at": "2026-10-24"
   }
 ]

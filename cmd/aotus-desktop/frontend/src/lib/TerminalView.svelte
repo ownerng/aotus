@@ -13,7 +13,7 @@
   let status = $state("");
 
   onMount(() => {
-    const term = new Terminal({ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontSize: 13, cursorBlink: true, theme: { background: "#000000" } });
+    const term = new Terminal({ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontSize: 13, cursorBlink: true, theme: { background: "#000000", foreground: "#e8e8e8", cursor: "#f5f5f5", selectionBackground: "#ffffff33" } });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(host);
@@ -47,5 +47,7 @@
   });
 </script>
 
-{#if status}<div class="banner">{label}: {status}</div>{/if}
-<div class="term" bind:this={host}></div>
+<div class="term-frame">
+  <div class="chrome"><span class="dot running" class:paused={!!status}></span><span class="grow">{label}</span>{#if status}<span>{status}</span>{:else}<span>Closing this view leaves it running</span>{/if}</div>
+  <div class="term" bind:this={host}></div>
+</div>

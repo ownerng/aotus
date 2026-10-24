@@ -4,6 +4,10 @@
   import TerminalView from "./TerminalView.svelte";
   import { defaultMode, modeChoices, needsNotice } from "./profiles";
 
+  const kindName: Record<string, string> = { claude: "Claude Code", codex: "Codex CLI", "openai-api": "OpenAI-compatible API" };
+  const kindTile: Record<string, string> = { claude: "CC", codex: "CX", "openai-api": "API" };
+  const modeName: Record<string, string> = { structured: "Chat", terminal: "Terminal", api: "API" };
+
   let kind = $state("claude");
   let mode = $state(defaultMode("claude"));
   let name = $state("");
@@ -40,34 +44,39 @@
 </script>
 
 {#if loginFor}
-  <div class="bar"><b>Login</b><span class="muted">in the profile's own isolated folder</span>
-    <button style="margin-left:auto" onclick={() => { loginFor = ""; check(loginFor); }}>Done</button></div>
-  <TerminalView label="Login" open={(r, c) => Backend.OpenLogin(loginFor, r, c)} />
+  <div class="bar"><b class="title">Log in</b><span class="muted">in this subscription's own private folder</span>
+    <button class="primary" style="margin-left:auto" onclick={() => { const id = loginFor; loginFor = ""; check(id); }}>Done</button></div>
+  <TerminalView label="Official login" open={(r, c) => Backend.OpenLogin(loginFor, r, c)} />
 {:else}
-  <div class="page">
+  <div class="page"><div class="inner">
     <h1>Subscriptions</h1>
-    <p class="muted">Link the plans you already pay for. Aotus runs the official CLI of each one; it never reads or copies your credentials.</p>
+    <p class="lede">The plans you already pay for. Aotus runs each one's official CLI in its own folder; it never reads or copies your credentials.</p>
 
-    {#each app.profiles as p (p.id)}
-      <div class="card">
-        <div class="row">
-          <b class="grow">{p.name}</b><span class="muted">{p.kind} · {p.mode}</span>
+    <h3 class="section">Linked</h3>
+    <div class="list">
+      {#each app.profiles as p (p.id)}
+        <div class="lrow" data-profile={p.name}>
+          <div class="tile">{kindTile[p.kind] ?? "?"}</div>
+          <div class="grow">
+            <b class="name">{p.name}</b>
+            <div class="desc ellipsis">{kindName[p.kind] ?? p.kind} · {modeName[p.mode] ?? p.mode}</div>
+            {#if detail[p.id]}<div class="faint tray-note" style="margin-top:2px">{detail[p.id]}</div>{/if}
+            {#if needsNotice(p.kind, p.mode) && !p.accepted_notices?.includes("claude-headless")}
+              <div class="notice">Chat mode uses the CLI's non-interactive mode; the provider's terms are ambiguous about it. <button style="margin-left:6px" onclick={() => accept(p.id)}>I understand</button></div>
+            {/if}
+          </div>
           <button onclick={() => check(p.id)}>Check</button>
           {#if p.kind !== "openai-api"}<button onclick={() => (loginFor = p.id)}>Log in</button>{/if}
-          <button class="danger" onclick={() => remove(p.id)}>Remove</button>
+          <button class="ghost danger" onclick={() => remove(p.id)}>Remove</button>
         </div>
-        {#if detail[p.id]}<div class="muted tray-note" style="margin-top:6px">{detail[p.id]}</div>{/if}
-        {#if needsNotice(p.kind, p.mode) && !p.accepted_notices?.includes("claude-headless")}
-          <div class="banner" style="margin:8px 0 0">Headless mode uses the CLI's non-interactive mode; read the provider's terms first. <button onclick={() => accept(p.id)}>I understand</button></div>
-        {/if}
-      </div>
-    {:else}
-      <p class="muted">No subscription linked yet.</p>
-    {/each}
+      {:else}
+        <p class="muted">No subscription linked yet. Link one below to create your first employee.</p>
+      {/each}
+    </div>
 
-    <h2 style="margin-top:20px">Link a subscription</h2>
+    <h3 class="section">Link a subscription</h3>
     <div class="card">
-      <label for="k">Provider</label>
+      <label for="k" style="margin-top:0">Provider</label>
       <select id="k" bind:value={kind} onchange={() => (mode = defaultMode(kind))}>
         <option value="claude">Claude Code (Claude subscription)</option>
         <option value="codex">Codex CLI (ChatGPT subscription)</option>
@@ -80,15 +89,15 @@
         <select id="md" bind:value={mode}>
           {#each modeChoices(kind) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
         </select>
-        {#if needsNotice(kind, mode)}<p class="muted">After linking, you will be asked to read and accept a notice about this mode.</p>{/if}
+        {#if needsNotice(kind, mode)}<p class="faint tray-note" style="margin-top:8px">After linking, you will be asked to read and accept a notice about this mode.</p>{/if}
       {/if}
       {#if kind === "openai-api"}
         <label for="u">Base URL</label><input id="u" bind:value={baseURL} placeholder="https://api.openai.com/v1" />
         <label for="m">Model</label><input id="m" bind:value={model} />
-        <label for="a">API key (stored in the OS credential store)</label><input id="a" type="password" bind:value={apiKey} />
+        <label for="a">API key (kept in the system's credential store)</label><input id="a" type="password" bind:value={apiKey} />
       {/if}
-      {#if error}<p class="err">{error}</p>{/if}
-      <div style="margin-top:12px"><button class="primary" disabled={busy || !name.trim()} onclick={add}>Link</button></div>
+      {#if error}<p class="err" style="margin-top:12px">{error}</p>{/if}
+      <div class="actions"><button class="primary" disabled={busy || !name.trim()} onclick={add}>Link</button></div>
     </div>
-  </div>
+  </div></div>
 {/if}
