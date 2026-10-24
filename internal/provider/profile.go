@@ -22,13 +22,12 @@ const (
 )
 
 // DefaultMode is how a kind of profile runs when the user does not choose:
-// Codex CLI structured and Claude Code terminal, as docs/research/provider-terms.md
-// (Decision) sets; Claude's structured mode is behind a notice.
+// structured (the chat) for Claude Code and Codex CLI. Claude's structured mode
+// stays behind a notice the user accepts when linking (ADR 0016, which amends
+// the terminal default of docs/research/provider-terms.md).
 func DefaultMode(k Kind) Mode {
 	switch k {
-	case KindClaude:
-		return ModeTerminal
-	case KindCodex:
+	case KindClaude, KindCodex:
 		return ModeStructured
 	case KindOpenAI:
 		return ModeAPI

@@ -4,6 +4,7 @@ package provider_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -270,25 +271,38 @@ func TestTerminalSessionInterruptAndCancel(t *testing.T) {
 	}
 }
 
-func TestClaudeDefaultsToTerminalMode(t *testing.T) {
+// Claude Code defaults to the chat (structured) mode, behind its notice
+// (ADR 0016, which replaced the terminal default); the terminal stays available.
+func TestClaudeDefaultsToChatMode(t *testing.T) {
 	l := layout(t)
 	p := terminalProfile(t, l, provider.KindClaude, providertest.TUI)
 	p.Mode = "" // nothing chosen
+	// Without the accepted notice the default mode does not start.
+	if _, err := (provider.Claude{}).Start(context.Background(), provider.SessionRequest{Profile: p, Dir: t.TempDir()}); !errors.Is(err, provider.ErrNoticeRequired) {
+		t.Fatalf("a Claude Code profile with no mode and no notice: %v; want ErrNoticeRequired (chat is the default, behind its notice)", err)
+	}
+	p.AcceptedNotices = []string{provider.NoticeClaudeHeadless}
 	s, err := provider.Claude{}.Start(context.Background(), provider.SessionRequest{Profile: p, Dir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = s.Close() }()
-	if _, ok := s.(provider.TerminalSession); !ok || s.Mode() != provider.ModeTerminal {
-		t.Fatalf("a Claude Code profile with no mode must run in terminal mode, got %T / %s", s, s.Mode())
+	if _, terminal := s.(provider.TerminalSession); terminal || s.Mode() != provider.ModeStructured {
+		t.Fatalf("a Claude Code profile with no mode must run the chat (structured), got %T / %s", s, s.Mode())
 	}
 	d, err := provider.Claude{}.Detect(context.Background(), p)
-	if err != nil || len(d.Modes) < 2 || d.Modes[0] != provider.ModeTerminal {
-		t.Fatalf("modes = %v, want terminal first (it is the default), %v", d.Modes, err)
+	if err != nil || len(d.Modes) < 2 || d.Modes[0] != provider.ModeStructured {
+		t.Fatalf("modes = %v, want structured first (it is the default), %v", d.Modes, err)
 	}
-	// Structured mode is still behind its notice.
-	if _, err := (provider.Claude{}).Start(context.Background(), provider.SessionRequest{Profile: p, Mode: provider.ModeStructured}); err == nil {
-		t.Fatal("structured mode must still require the accepted notice")
+	// The terminal is still there when chosen.
+	p.Mode = provider.ModeTerminal
+	ts, err := provider.Claude{}.Start(context.Background(), provider.SessionRequest{Profile: p, Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ts.Close() }()
+	if _, ok := ts.(provider.TerminalSession); !ok || ts.Mode() != provider.ModeTerminal {
+		t.Fatalf("a Claude Code profile in terminal mode must run the terminal, got %T / %s", ts, ts.Mode())
 	}
 	// Codex stays structured by default.
 	cp := terminalProfile(t, l, provider.KindCodex, providertest.Hello)

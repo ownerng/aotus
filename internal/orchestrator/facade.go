@@ -126,6 +126,15 @@ func (m *Manager) Detect(ctx context.Context, profileID string) (provider.Detect
 	return prov.Detect(ctx, p)
 }
 
+// Notice is a text the user must read and accept before a mode can be used.
+type Notice struct{ ID, Text string }
+
+// Notices returns every notice with its text, so a client shows the exact
+// words the user accepts.
+func Notices() []Notice {
+	return []Notice{{ID: provider.NoticeClaudeHeadless, Text: provider.ClaudeHeadlessNotice}}
+}
+
 // knownNotices are the notices a user can accept.
 var knownNotices = []string{provider.NoticeClaudeHeadless}
 

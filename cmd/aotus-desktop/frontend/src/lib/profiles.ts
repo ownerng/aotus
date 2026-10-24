@@ -3,15 +3,11 @@
 
 export type Mode = "structured" | "terminal" | "api";
 
-// defaultMode is the provider's default: Codex CLI structured, Claude Code
-// terminal (docs/research/provider-terms.md, Decision). The daemon applies
-// the same defaults when no mode is sent.
+// defaultMode is the provider's default: the chat (structured) for Claude Code
+// and Codex CLI; Claude's chat is behind a notice the person accepts when
+// linking (ADR 0016). The daemon applies the same defaults when no mode is sent.
 export function defaultMode(kind: string): Mode {
-  switch (kind) {
-    case "codex": return "structured";
-    case "claude": return "terminal";
-    default: return "api";
-  }
+  return kind === "claude" || kind === "codex" ? "structured" : "api";
 }
 
 // modeChoices are the ways a kind of subscription can run, default first.

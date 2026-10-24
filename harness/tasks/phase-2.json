@@ -917,7 +917,7 @@
     "id": "P2-019",
     "phase": 2,
     "title": "Claude's chat works by default and the terminal's trust prompt never blocks",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-018"
     ],
@@ -976,7 +976,8 @@
     ],
     "docs": [
       "docs/research/provider-terms.md"
-    ]
+    ],
+    "completed_at": "2026-10-24"
   },
   {
     "id": "P2-020",

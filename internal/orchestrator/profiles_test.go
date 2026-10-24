@@ -68,8 +68,8 @@ func TestCreateProfileStoresTheDefaultMode(t *testing.T) {
 		want provider.Mode
 	}{
 		{provider.KindCodex, "", provider.ModeStructured},
-		{provider.KindClaude, "", provider.ModeTerminal},
-		{provider.KindClaude, provider.ModeStructured, provider.ModeStructured},
+		{provider.KindClaude, "", provider.ModeStructured}, // ADR 0016: chat by default, behind its notice
+		{provider.KindClaude, provider.ModeTerminal, provider.ModeTerminal},
 		{provider.KindCodex, provider.ModeTerminal, provider.ModeTerminal},
 	} {
 		p, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: tc.kind, Name: string(tc.kind) + "-" + string(tc.mode), Mode: tc.mode})
@@ -110,5 +110,30 @@ func TestOnlyOneComputerLoginPerCLI(t *testing.T) {
 	}
 	if stored, _ := r.svc.Profile(ctx, mine.ID); !stored.ComputerLogin {
 		t.Fatal("accepting a notice dropped the computer's sign-in")
+	}
+}
+
+func TestModeIsKnownBeforeTheSessionStarts(t *testing.T) {
+	r := newRig(t, Options{FindCLI: func(k provider.Kind) (string, error) { return "/opt/found/" + string(k), nil }})
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name string
+		mode provider.Mode
+		want provider.Mode
+	}{
+		{"chat", "", provider.ModeStructured},
+		{"term", provider.ModeTerminal, provider.ModeTerminal},
+	} {
+		p, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: provider.KindClaude, Name: "p-" + tc.name, Mode: tc.mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		emp := r.employee(t, tc.name, p)
+		if st := r.mgr.Status(emp.ID); st.Mode != "" {
+			t.Fatalf("%s: a session exists already (%s); the test needs one that has not started", tc.name, st.Mode)
+		}
+		if got := r.mgr.ModeOf(ctx, emp); got != tc.want {
+			t.Errorf("%s: ModeOf before the session starts = %q, want %q (a client must know whether to offer a chat or a terminal)", tc.name, got, tc.want)
+		}
 	}
 }

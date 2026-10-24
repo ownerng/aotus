@@ -20,6 +20,16 @@
   const dot = (e: Emp) => (e.working ? "working" : e.state === "paused" ? "paused" : "");
   const sub = (e: Emp) => (e.working ? "Working…" : e.state === "paused" ? "Paused" : e.role || "Ready");
   const go = (v: typeof app.view) => (app.view = v);
+  // Removing stops the teammate's programs first, which can take a moment.
+  let removing = $state("");
+  async function remove(id: string) {
+    removing = id;
+    try {
+      await Backend.DeleteEmployee(id);
+      if (app.selected === id) { app.selected = ""; app.view = "profiles"; }
+      await app.refreshAll();
+    } catch (e) { app.error = String(e); } finally { removing = ""; }
+  }
 </script>
 
 <div class="shell">
@@ -72,7 +82,7 @@
         {:else}
           <button class="ghost" onclick={() => Backend.Pause(emp.id).then(() => app.refreshEmployees())}>Pause</button>
         {/if}
-        <button class="ghost danger" onclick={() => Backend.DeleteEmployee(emp.id).then(async () => { app.selected = ""; app.view = "profiles"; await app.refreshAll(); })}>Remove</button>
+        <button class="ghost danger" disabled={removing === emp.id} onclick={() => remove(emp.id)}>{removing === emp.id ? "Removing…" : "Remove"}</button>
       </div>
       {#if app.view === "chat"}
         <Chat />

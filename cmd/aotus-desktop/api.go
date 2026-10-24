@@ -57,6 +57,11 @@ func (b *Backend) AcceptNotice(id, notice string) error {
 	return do(b, func(ctx context.Context, c *client.Client) error { return c.AcceptNotice(ctx, id, notice) })
 }
 
+// Notices returns the notices a user can accept, with their exact text.
+func (b *Backend) Notices() ([]client.Notice, error) {
+	return call(b, func(ctx context.Context, c *client.Client) ([]client.Notice, error) { return c.Notices(ctx) })
+}
+
 // SetAPIKey stores an API key in the OS credential store.
 func (b *Backend) SetAPIKey(id, key string) error {
 	return do(b, func(ctx context.Context, c *client.Client) error { return c.SetAPIKey(ctx, id, key) })

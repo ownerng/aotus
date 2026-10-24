@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -45,6 +46,7 @@ func (s *Server) register() {
 	s.handleEmployee("GET "+base+"/employees/{id}/terminal/ws", s.terminalWS)
 
 	s.handle("GET "+base+"/me", s.me)
+	s.handle("GET "+base+"/notices", s.notices)
 	s.handleOwner("GET "+base+"/access", s.listAccess)
 	s.handleOwner("POST "+base+"/access", s.addAccess)
 	s.handleOwner("DELETE "+base+"/access/{login}", s.removeAccess)
@@ -140,6 +142,20 @@ func toProfileDTO(p orchestrator.Profile) profileDTO {
 		BaseURL: p.BaseURL, AcceptedNotices: notices, ExtraEnv: p.ExtraEnv, TermsCheckedAt: p.TermsCheckedAt,
 		ComputerLogin: p.ComputerLogin,
 	}
+}
+
+// notices lists the notices a user can accept, with their exact text.
+func (s *Server) notices(w http.ResponseWriter, _ *http.Request) {
+	type noticeDTO struct {
+		ID   string `json:"id"`
+		Text string `json:"text"`
+	}
+	ns := orchestrator.Notices()
+	out := make([]noticeDTO, len(ns))
+	for i, n := range ns {
+		out[i] = noticeDTO{ID: n.ID, Text: n.Text}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) listProfiles(w http.ResponseWriter, r *http.Request) {
@@ -270,13 +286,13 @@ type employeeDTO struct {
 	PermissionMode  string   `json:"permission_mode,omitempty"`
 	AllowedTools    []string `json:"allowed_tools"`
 	CreatedAt       string   `json:"created_at"`
-	Mode            string   `json:"mode,omitempty"` // known once the session exists
+	Mode            string   `json:"mode,omitempty"` // the session's, or before it starts its profile's
 	Working         bool     `json:"working"`
 	TurnID          string   `json:"turn_id,omitempty"`
 	TerminalRunning bool     `json:"terminal_running"`
 }
 
-func (s *Server) toEmployeeDTO(e orchestrator.Employee) employeeDTO {
+func (s *Server) toEmployeeDTO(ctx context.Context, e orchestrator.Employee) employeeDTO {
 	st := s.cfg.Manager.Status(e.ID)
 	tools := e.AllowedTools
 	if tools == nil {
@@ -285,7 +301,7 @@ func (s *Server) toEmployeeDTO(e orchestrator.Employee) employeeDTO {
 	return employeeDTO{
 		ID: e.ID, Name: e.Name, Role: e.Role, SystemPrompt: e.SystemPrompt, ProfileID: e.ProfileID, State: string(e.State),
 		PermissionMode: e.PermissionMode, AllowedTools: tools, CreatedAt: e.CreatedAt.UTC().Format(time.RFC3339),
-		Mode: string(st.Mode), Working: st.Working, TurnID: st.TurnID, TerminalRunning: st.TerminalRunning,
+		Mode: string(s.cfg.Manager.ModeOf(ctx, e)), Working: st.Working, TurnID: st.TurnID, TerminalRunning: st.TerminalRunning,
 	}
 }
 
@@ -297,7 +313,7 @@ func (s *Server) listEmployees(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]employeeDTO, len(es))
 	for i, e := range es {
-		out[i] = s.toEmployeeDTO(e)
+		out[i] = s.toEmployeeDTO(r.Context(), e)
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -325,7 +341,7 @@ func (s *Server) createEmployee(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, s.toEmployeeDTO(e))
+	writeJSON(w, http.StatusCreated, s.toEmployeeDTO(r.Context(), e))
 }
 
 func (s *Server) getEmployee(w http.ResponseWriter, r *http.Request) {
@@ -334,7 +350,7 @@ func (s *Server) getEmployee(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.toEmployeeDTO(e))
+	writeJSON(w, http.StatusOK, s.toEmployeeDTO(r.Context(), e))
 }
 
 func (s *Server) deleteEmployee(w http.ResponseWriter, r *http.Request) {

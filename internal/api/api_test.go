@@ -574,3 +574,32 @@ func TestProfileErrorsAreBadRequests(t *testing.T) {
 		}
 	}
 }
+
+func TestEmployeeModeComesFromItsProfile(t *testing.T) {
+	a := newAPI(t)
+	term := a.fakeProfile(t, "term", providertest.TUI, "terminal")
+	chat := a.fakeProfile(t, "chat", providertest.Hello, "structured")
+	for profile, want := range map[string]string{term: "terminal", chat: "structured"} {
+		var e struct{ ID, Mode string }
+		a.call(t, "POST", "/api/v1/employees", map[string]any{"name": "e-" + want, "profile_id": profile}, 201, &e)
+		if e.Mode != want {
+			t.Errorf("a new employee on a %s profile reports mode %q before anything started; want %q", want, e.Mode, want)
+		}
+		var list []struct{ ID, Mode string }
+		a.call(t, "GET", "/api/v1/employees", nil, 200, &list)
+		for _, l := range list {
+			if l.ID == e.ID && l.Mode != want {
+				t.Errorf("GET /employees reports mode %q for the %s employee", l.Mode, want)
+			}
+		}
+	}
+}
+
+func TestNoticesAreServedWithTheirText(t *testing.T) {
+	a := newAPI(t)
+	var ns []struct{ ID, Text string }
+	a.call(t, "GET", "/api/v1/notices", nil, 200, &ns)
+	if len(ns) != 1 || ns[0].ID != provider.NoticeClaudeHeadless || ns[0].Text != provider.ClaudeHeadlessNotice {
+		t.Fatalf("GET /notices = %+v; want the Claude notice with its exact text", ns)
+	}
+}

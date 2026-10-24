@@ -1039,7 +1039,7 @@
           "TestTerminalSessionReplayThenLive",
           "TestTerminalSessionResizeAndInput",
           "TestTerminalSessionInterruptAndCancel",
-          "TestClaudeDefaultsToTerminalMode",
+          "TestClaudeDefaultsToChatMode",
           "TestLoginFlowRunsInsideTheProfile",
           "TestTerminalModeNeverReadsCredentialFiles"
         ]
@@ -1053,6 +1053,7 @@
       "docs/research/provider-terms.md",
       "docs/DECISIONS/0008-provider-integration-and-profiles.md"
     ],
+    "notes": "2026-10-23: TestClaudeDefaultsToTerminalMode became TestClaudeDefaultsToChatMode when the owner changed Claude Code's default to chat behind its notice (ADR 0016, P2-019); the terminal mode this task built is still tested there and by the terminal tests.",
     "completed_at": "2026-10-09"
   }
 ]

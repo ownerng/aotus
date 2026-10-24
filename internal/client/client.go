@@ -338,6 +338,19 @@ func (c *Client) AcceptNotice(ctx context.Context, id, notice string) error {
 	return c.do(ctx, "POST", "/profiles/"+url.PathEscape(id)+"/notices", map[string]string{"notice": notice}, nil)
 }
 
+// Notice is a text the user must read and accept before a mode can be used.
+type Notice struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+// Notices returns the notices a user can accept, with their exact text.
+func (c *Client) Notices(ctx context.Context) ([]Notice, error) {
+	var out []Notice
+	err := c.do(ctx, "GET", "/notices", nil, &out)
+	return out, err
+}
+
 // SetAPIKey stores a profile's API key in the daemon's credential store.
 func (c *Client) SetAPIKey(ctx context.Context, id, key string) error {
 	return c.do(ctx, "PUT", "/profiles/"+url.PathEscape(id)+"/api-key", map[string]string{"key": key}, nil)

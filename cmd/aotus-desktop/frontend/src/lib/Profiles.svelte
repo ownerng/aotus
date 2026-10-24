@@ -11,6 +11,8 @@
   let kind = $state("claude");
   let mode = $state(defaultMode("claude"));
   let login = $state(defaultLogin("claude"));
+  let accepted = $state(false); // the person read the notice of the chosen mode
+  const notices = $derived(app.notices);
   // Where "this computer" is: the window may be talking to a daemon on a server.
   const where = $derived(app.daemon?.remote ? app.daemon.connection : "this computer");
   let name = $state("");
@@ -27,6 +29,8 @@
     try {
       const p = await Backend.CreateProfile({ kind, name: name.trim(), mode, model, base_url: baseURL, computer_login: login === "computer" } as any);
       if (kind === "openai-api" && apiKey) await Backend.SetAPIKey(p.id, apiKey);
+      if (needsNotice(kind, mode) && accepted) await Backend.AcceptNotice(p.id, "claude-headless");
+      accepted = false;
       name = ""; apiKey = ""; model = ""; baseURL = "";
       await app.refreshAll();
       await check(p.id);
@@ -65,7 +69,7 @@
             <div class="desc ellipsis">{kindName[p.kind] ?? p.kind} · {modeName[p.mode] ?? p.mode}{p.computer_login ? ` · sign-in on ${where}` : ""}</div>
             {#if detail[p.id]}<div class="faint tray-note" style="margin-top:2px">{detail[p.id]}</div>{/if}
             {#if needsNotice(p.kind, p.mode) && !p.accepted_notices?.includes("claude-headless")}
-              <div class="notice">Chat mode uses the CLI's non-interactive mode; the provider's terms are ambiguous about it. <button style="margin-left:6px" onclick={() => accept(p.id)}>I understand</button></div>
+              <div class="notice"><p style="margin:0 0 10px">{notices["claude-headless"] ?? "Chat mode uses the CLI's non-interactive mode; the provider's terms are ambiguous about it."}</p><button onclick={() => accept(p.id)}>I have read this and accept it</button></div>
             {/if}
           </div>
           <button onclick={() => check(p.id)}>Check</button>
@@ -97,7 +101,12 @@
         <select id="md" bind:value={mode}>
           {#each modeChoices(kind) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
         </select>
-        {#if needsNotice(kind, mode)}<p class="faint tray-note" style="margin-top:8px">After linking, you will be asked to read and accept a notice about this mode.</p>{/if}
+        {#if needsNotice(kind, mode)}
+          <div class="notice">
+            <p style="margin:0 0 10px">{notices["claude-headless"] ?? "Loading the notice…"}</p>
+            <label class="row" style="margin:0; color:var(--text); gap:10px; cursor:pointer"><input type="checkbox" style="width:auto" bind:checked={accepted} disabled={!notices["claude-headless"]} /> I have read this and accept it</label>
+          </div>
+        {/if}
       {/if}
       {#if kind === "openai-api"}
         <label for="u">Base URL</label><input id="u" bind:value={baseURL} placeholder="https://api.openai.com/v1" />
@@ -105,7 +114,7 @@
         <label for="a">API key (kept in the system's credential store)</label><input id="a" type="password" bind:value={apiKey} />
       {/if}
       {#if error}<p class="err" style="margin-top:12px">{error}</p>{/if}
-      <div class="actions"><button class="primary" disabled={busy || !name.trim()} onclick={add}>Link</button></div>
+      <div class="actions"><button class="primary" disabled={busy || !name.trim() || (needsNotice(kind, mode) && !accepted)} onclick={add}>Link</button></div>
     </div>
   </div></div>
 {/if}

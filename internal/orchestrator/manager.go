@@ -404,6 +404,23 @@ func (m *Manager) Status(employeeID string) Status {
 	return st
 }
 
+// ModeOf is how the employee runs: its session's mode once it has one, and
+// before that its profile's (a client must know whether to offer a chat or a
+// terminal before anything has started).
+func (m *Manager) ModeOf(ctx context.Context, e Employee) Mode {
+	if st := m.Status(e.ID); st.Mode != "" {
+		return st.Mode
+	}
+	p, err := m.svc.Profile(ctx, e.ProfileID)
+	if err != nil {
+		return ""
+	}
+	if p.Mode != "" {
+		return p.Mode
+	}
+	return provider.DefaultMode(p.Kind)
+}
+
 // Pause stops the employee's work and keeps it from starting more.
 func (m *Manager) Pause(ctx context.Context, employeeID string) error {
 	if err := m.svc.Pause(ctx, employeeID); err != nil {

@@ -16,6 +16,8 @@ class AppState {
   employees = $state<Employee[]>([]);
   profiles = $state<Profile[]>([]);
   approvals = $state<Approval[]>([]);
+  // notices: id -> the exact text a person accepts (loaded with the rest, once connected)
+  notices = $state<Record<string, string>>({});
   settings = $state<Settings>({ keep_in_tray: false } as Settings);
   version = $state("");
 
@@ -50,9 +52,11 @@ class AppState {
 
   async refreshAll() {
     try {
-      [this.employees, this.profiles, this.approvals] = await Promise.all([
-        Backend.Employees(), Backend.Profiles(), Backend.Approvals(),
-      ]) as [Employee[], Profile[], Approval[]];
+      const [emps, profs, apps, notes] = await Promise.all([
+        Backend.Employees(), Backend.Profiles(), Backend.Approvals(), Backend.Notices(),
+      ]);
+      [this.employees, this.profiles, this.approvals] = [emps, profs, apps] as [Employee[], Profile[], Approval[]];
+      this.notices = Object.fromEntries((notes ?? []).map((n) => [n.id, n.text]));
       if (this.selected) await this.loadChat(this.selected);
     } catch (err) {
       this.error = String(err);

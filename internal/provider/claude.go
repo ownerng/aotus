@@ -41,7 +41,7 @@ func (c Claude) lookup() func(string) (string, bool) {
 func (c Claude) Detect(ctx context.Context, p Profile) (Detection, error) {
 	modes := []Mode{ModeStructured}
 	if proc.PTYSupported() {
-		modes = []Mode{ModeTerminal, ModeStructured} // terminal first: it is the default
+		modes = []Mode{ModeStructured, ModeTerminal} // structured first: it is the default (ADR 0016)
 	}
 	return detectCLI(ctx, p, "Claude Code", modes, c.lookup())
 }
