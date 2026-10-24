@@ -269,8 +269,13 @@ func (p *Process) Cancel() {
 func (p *Process) Interrupt() error { return p.interrupt() }
 
 func (p *Process) supervise(ctx context.Context) {
-	waited := make(chan error, 1)
-	go func() { waited <- p.cmd.Wait() }()
+	// How the leader exited is read from cmd.ProcessState; the channel only
+	// says that it did.
+	waited := make(chan struct{}, 1)
+	go func() {
+		_ = p.cmd.Wait()
+		waited <- struct{}{}
+	}()
 
 	select {
 	case <-waited:

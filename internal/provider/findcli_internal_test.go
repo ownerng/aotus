@@ -19,7 +19,7 @@ func fakeProgram(t *testing.T, dir, program string) string {
 		t.Fatal(err)
 	}
 	p := filepath.Join(dir, program)
-	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil { //nolint:gosec // the test needs an executable
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return p
