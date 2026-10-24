@@ -912,5 +912,239 @@
       "docs/SECURITY.md"
     ],
     "completed_at": "2026-10-24"
+  },
+  {
+    "id": "P2-019",
+    "phase": 2,
+    "title": "Claude's chat works by default and the terminal's trust prompt never blocks",
+    "status": "todo",
+    "depends_on": [
+      "P2-018"
+    ],
+    "requirements": [
+      "F1",
+      "F3",
+      "F16"
+    ],
+    "description": "The owner found that the chat did not work with Claude and that leaving Claude Code's folder-trust prompt unanswered and switching to the chat blocked the teammate. Reproduced on 2026-10-23: Claude profiles defaulted to terminal mode, where there is no chat; an employee's mode was only known once its session started, so a new Claude teammate first showed a composer, and a message sent from it was typed into the terminal, landing in the trust prompt. The owner now decides that Claude Code defaults to chat (structured) mode, with its notice shown and accepted once when the subscription is linked (ADR 0016 amends the provider-terms decision); terminal stays available. An employee's mode is known before its session starts (from its profile). The chat never shows a composer for a terminal teammate, and the terminal view tells the person, the first time, that Claude Code asks whether to trust the teammate's own folder.",
+    "acceptance": [
+      "A Claude subscription linked with the defaults chats like Codex once its notice is accepted",
+      "A new employee reports its mode before its session starts; a terminal teammate never shows a composer",
+      "ADR 0016 records the new default"
+    ],
+    "checks": [
+      {
+        "name": "orchestrator tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestModeIsKnownBeforeTheSessionStarts",
+          "TestCreateProfileStoresTheDefaultMode"
+        ]
+      },
+      {
+        "name": "api tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestEmployeeModeComesFromItsProfile"
+        ]
+      },
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "decision",
+        "file": "docs/DECISIONS/0016-claude-chat-by-default.md",
+        "contains": [
+          "Decision",
+          "Consequences",
+          "notice",
+          "ADR 0008"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/",
+      "internal/orchestrator/",
+      "internal/api/",
+      "cmd/aotus-desktop/frontend/",
+      "docs/"
+    ],
+    "docs": [
+      "docs/research/provider-terms.md"
+    ]
+  },
+  {
+    "id": "P2-020",
+    "phase": 2,
+    "title": "First-run onboarding: find the subscriptions already on this computer and link them",
+    "status": "todo",
+    "depends_on": [
+      "P2-019"
+    ],
+    "requirements": [
+      "F1",
+      "F2",
+      "F16"
+    ],
+    "description": "A new user met an empty window and a form. The first run is now a short flow: a welcome; the daemon finds the official CLIs installed on its computer and whether each is already signed in (without creating anything, and without reading any session); the person links the ones they want in one step, reading and accepting Claude's chat notice there; then they describe their first teammate (P2-021). Onboarding shows while no subscription is linked and can be skipped. A new API route reports the CLIs found.",
+    "acceptance": [
+      "With no subscription, the app opens on the onboarding, which lists the CLIs found and their sign-in",
+      "Linking from onboarding uses this computer's sign-in and the default mode",
+      "Onboarding can be skipped and does not come back once a subscription exists"
+    ],
+    "checks": [
+      {
+        "name": "api tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestFindCLIsReportsInstalledAndSignedIn"
+        ]
+      },
+      {
+        "name": "orchestrator tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestFindCLIsCreatesNothing"
+        ]
+      },
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "onboarding",
+        "file": "cmd/aotus-desktop/frontend/src/lib/Onboarding.svelte",
+        "contains": [
+          "FindCLIs",
+          "Skip"
+        ]
+      },
+      {
+        "name": "api docs",
+        "file": "docs/API.md",
+        "contains": [
+          "/clis"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/orchestrator/",
+      "internal/api/",
+      "internal/client/",
+      "cmd/aotus-desktop/",
+      "docs/API.md"
+    ]
+  },
+  {
+    "id": "P2-021",
+    "phase": 2,
+    "title": "A teammate sets itself up from a description",
+    "status": "todo",
+    "depends_on": [
+      "P2-020"
+    ],
+    "requirements": [
+      "F2",
+      "F5"
+    ],
+    "description": "Creating a teammate was a form of separate fields, which the owner finds clumsy. Now the person writes what they need in their own words; the teammate's own subscription drafts its name, role, instructions and a SOUL.md (its character, values and working style) in one short structured call in a scratch folder; the person reviews the draft, can edit any part or ask for another one, and hires it. SOUL.md is written into the teammate's folder, where the CLI reads it with the instructions. The draft call is not a turn of any employee and is not stored in a history.",
+    "acceptance": [
+      "One description produces a reviewable draft with name, role, instructions and SOUL.md",
+      "The hired teammate has SOUL.md in its folder and uses it",
+      "A draft that cannot be parsed or fails says why and lets the person retry or write it themselves"
+    ],
+    "checks": [
+      {
+        "name": "orchestrator tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestDraftEmployeeParsesTheModelsAnswer",
+          "TestDraftEmployeeRejectsAnUnusableAnswer",
+          "TestHiredEmployeeGetsItsSoul"
+        ]
+      },
+      {
+        "name": "api tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestDraftEmployeeRoute"
+        ]
+      },
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "api docs",
+        "file": "docs/API.md",
+        "contains": [
+          "/employees/draft",
+          "soul"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/orchestrator/",
+      "internal/workspace/",
+      "internal/api/",
+      "internal/client/",
+      "cmd/aotus/",
+      "cmd/aotus-desktop/",
+      "docs/"
+    ]
+  },
+  {
+    "id": "P2-022",
+    "phase": 2,
+    "title": "Aotus' own identity: night amber",
+    "status": "todo",
+    "depends_on": [
+      "P2-016"
+    ],
+    "requirements": [
+      "F16"
+    ],
+    "description": "The redesign followed Grok Bot too closely; the owner wants it as an inspiration, not a copy. Aotus takes its identity from the night monkey: a warm ink black instead of neutral grey, amber like its eyes for the one primary action and for work in progress, a mark whose eyes blink slowly, and a wordmark of its own. Colour still means something: amber is action and activity, green and red stay status. docs/DESIGN.md is updated.",
+    "acceptance": [
+      "The palette is warm ink and amber, defined only as tokens",
+      "The mark blinks and the wordmark is Aotus' own",
+      "docs/DESIGN.md describes the identity and what is inspiration, not copy"
+    ],
+    "checks": [
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "design doc",
+        "file": "docs/DESIGN.md",
+        "contains": [
+          "night amber",
+          "amber",
+          "inspiration"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/frontend/",
+      "docs/DESIGN.md"
+    ]
   }
 ]
