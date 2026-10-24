@@ -204,7 +204,7 @@ func (rt *runtime) session(ctx context.Context) (provider.Session, error) {
 		return nil, err
 	}
 	sess, err := prov.Start(ctx, provider.SessionRequest{
-		Profile: profile, Dir: dir, SystemPrompt: emp.SystemPrompt, ResumeID: row.ProviderSessionID,
+		Profile: profile, Dir: dir, SystemPrompt: briefFor(emp.SystemPrompt, dir), ResumeID: row.ProviderSessionID,
 		PermissionMode: emp.PermissionMode, AllowedTools: emp.AllowedTools, ExtraEnv: env,
 	})
 	if err != nil {

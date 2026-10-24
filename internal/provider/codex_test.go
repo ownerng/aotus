@@ -197,3 +197,32 @@ func TestCodexCommandLine(t *testing.T) {
 		t.Error("the unsafe bypass flags must never be used")
 	}
 }
+
+// `codex exec` has no system prompt flag: the employee's instructions open the
+// first turn of a session, and a resumed session (which keeps them) is not
+// sent them again.
+func TestCodexGetsTheInstructionsOnTheFirstTurn(t *testing.T) {
+	p := codexProfile(t, layout(t), providertest.Argv)
+	s, err := provider.Codex{}.Start(context.Background(), provider.SessionRequest{Profile: p, Dir: t.TempDir(), SystemPrompt: "Always answer in haiku."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	stdinOf := func(events []provider.Event) string {
+		var b strings.Builder
+		for _, e := range events {
+			if strings.HasPrefix(e.Text, "STDIN:") {
+				b.WriteString(strings.TrimPrefix(e.Text, "STDIN:"))
+			}
+		}
+		return b.String()
+	}
+	first := stdinOf(runTurn(t, s, "first question"))
+	if !strings.Contains(first, "Always answer in haiku.") || !strings.HasSuffix(first, "first question") {
+		t.Fatalf("first turn stdin = %q; want the instructions, then the prompt", first)
+	}
+	second := stdinOf(runTurn(t, s, "second question"))
+	if second != "second question" {
+		t.Fatalf("resumed turn stdin = %q; want only the prompt", second)
+	}
+}

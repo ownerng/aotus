@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"text/tabwriter"
 
@@ -49,7 +50,8 @@ Subscriptions (profiles)
 
 Employees
   employees                       list employees
-  employee add --name NAME --profile ID [--role ROLE] [--prompt TEXT]
+  employee draft --profile ID DESCRIPTION...   the subscription drafts a teammate (name, role, instructions, SOUL.md)
+  employee add --name NAME --profile ID [--role ROLE] [--prompt TEXT] [--soul-file SOUL.md]
   employee pause|resume|rm EMPLOYEE
   chat EMPLOYEE PROMPT...         give a prompt and stream the answer   [--approve ask|deny]
   history EMPLOYEE [--limit N]
@@ -323,7 +325,7 @@ func (a *app) find(ref string) (client.Employee, error) {
 
 func (a *app) employee(args []string) error {
 	if len(args) == 0 {
-		return usageError{"employee needs a subcommand: add, pause, resume or rm"}
+		return usageError{"employee needs a subcommand: draft, add, pause, resume or rm"}
 	}
 	sub, rest := args[0], args[1:]
 	if sub == "add" {
@@ -333,14 +335,36 @@ func (a *app) employee(args []string) error {
 		fs.StringVar(&in.Role, "role", "", "")
 		fs.StringVar(&in.SystemPrompt, "prompt", "", "")
 		fs.StringVar(&in.ProfileID, "profile", "", "")
+		soulFile := fs.String("soul-file", "", "")
 		if pos, err := parseFlags(fs, rest); err != nil || len(pos) > 0 || in.Name == "" || in.ProfileID == "" {
-			return usageError{"usage: aotus employee add --name NAME --profile ID [--role ROLE] [--prompt TEXT]"}
+			return usageError{"usage: aotus employee add --name NAME --profile ID [--role ROLE] [--prompt TEXT] [--soul-file SOUL.md]"}
+		}
+		if *soulFile != "" {
+			b, err := os.ReadFile(*soulFile)
+			if err != nil {
+				return err
+			}
+			in.Soul = string(b)
 		}
 		e, err := a.c.CreateEmployee(a.ctx, in)
 		if err != nil {
 			return err
 		}
 		fmt.Fprintln(a.out, e.ID)
+		return nil
+	}
+	if sub == "draft" {
+		fs := flag.NewFlagSet("employee draft", flag.ContinueOnError)
+		profile := fs.String("profile", "", "")
+		pos, err := parseFlags(fs, rest)
+		if err != nil || *profile == "" || len(pos) == 0 {
+			return usageError{"usage: aotus employee draft --profile ID DESCRIPTION..."}
+		}
+		d, err := a.c.DraftEmployee(a.ctx, *profile, strings.Join(pos, " "))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(a.out, "name:  %s\nrole:  %s\n\ninstructions:\n%s\n\nSOUL.md:\n%s\n", d.Name, d.Role, d.Instructions, d.Soul)
 		return nil
 	}
 	ref, err := one(rest, "employee "+sub+" EMPLOYEE")

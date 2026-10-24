@@ -51,7 +51,7 @@ type Client struct {
 
 // New returns a client for a daemon at address (host:port) with a token.
 func New(address, token string) *Client {
-	return &Client{base: "http://" + address + "/api/v1", token: token, http: &http.Client{Timeout: 60 * time.Second}}
+	return &Client{base: "http://" + address + "/api/v1", token: token, http: &http.Client{}}
 }
 
 // Discover finds the running daemon of a data directory through its discovery
@@ -109,7 +109,26 @@ func (c *Client) send(req *http.Request, idempotent bool) (*http.Response, error
 	return nil, c.explain(err)
 }
 
+// Time limits of one call, answer included: most calls answer at once; a call
+// that waits for a subscription (a teammate draft) gets longer, and the daemon
+// gives up on it first, after three minutes.
+const (
+	callTimeout     = 60 * time.Second
+	slowCallTimeout = 4 * time.Minute
+)
+
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
+	return c.doWithin(ctx, callTimeout, method, path, in, out)
+}
+
+// doSlow is do for a call that waits on a subscription.
+func (c *Client) doSlow(ctx context.Context, method, path string, in, out any) error {
+	return c.doWithin(ctx, slowCallTimeout, method, path, in, out)
+}
+
+func (c *Client) doWithin(ctx context.Context, limit time.Duration, method, path string, in, out any) error {
+	ctx, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
 	var body io.Reader
 	if in != nil {
 		b, err := json.Marshal(in)
@@ -226,6 +245,24 @@ type NewEmployee struct {
 	ProfileID      string   `json:"profile_id"`
 	PermissionMode string   `json:"permission_mode,omitempty"`
 	AllowedTools   []string `json:"allowed_tools,omitempty"`
+	// Soul is the employee's SOUL.md, written into its folder.
+	Soul string `json:"soul,omitempty"`
+}
+
+// Draft is a teammate proposed by a subscription, to review before hiring.
+type Draft struct {
+	Name         string `json:"name"`
+	Role         string `json:"role"`
+	Instructions string `json:"instructions"`
+	Soul         string `json:"soul"`
+}
+
+// DraftEmployee asks the subscription of a profile to draft a teammate from a
+// description. Nothing is created.
+func (c *Client) DraftEmployee(ctx context.Context, profileID, description string) (Draft, error) {
+	var d Draft
+	err := c.doSlow(ctx, "POST", "/employees/draft", map[string]string{"profile_id": profileID, "description": description}, &d)
+	return d, err
 }
 
 // Turn is a request to an employee and how it ended.

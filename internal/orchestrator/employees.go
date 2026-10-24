@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -69,6 +70,8 @@ type NewEmployee struct {
 	ProfileID      string
 	PermissionMode string
 	AllowedTools   []string
+	// Soul is the employee's SOUL.md, written into its folder (optional).
+	Soul string
 }
 
 // Service manages employees and profiles. It is safe for concurrent use.
@@ -183,6 +186,8 @@ func (s *Service) CreateEmployee(ctx context.Context, in NewEmployee) (Employee,
 		return Employee{}, fmt.Errorf("%w: the role is longer than %d characters", ErrInvalid, maxRole)
 	case len([]rune(in.SystemPrompt)) > maxPrompt:
 		return Employee{}, fmt.Errorf("%w: the system prompt is longer than %d characters", ErrInvalid, maxPrompt)
+	case len([]rune(in.Soul)) > maxSoul:
+		return Employee{}, fmt.Errorf("%w: SOUL.md is longer than %d characters", ErrInvalid, maxSoul)
 	case in.ProfileID == "":
 		return Employee{}, fmt.Errorf("%w: choose the profile the employee works with", ErrInvalid)
 	}
@@ -215,7 +220,11 @@ func (s *Service) CreateEmployee(ctx context.Context, in NewEmployee) (Employee,
 		}
 		return Employee{}, err
 	}
-	if _, err := s.ws.Create(slug); err != nil {
+	dir, err := s.ws.Create(slug)
+	if err == nil && strings.TrimSpace(in.Soul) != "" {
+		err = os.WriteFile(filepath.Join(dir, SoulFile), []byte(strings.TrimSpace(in.Soul)+"\n"), 0o600)
+	}
+	if err != nil {
 		_ = s.st.SetEmployeeState(ctx, row.ID, store.StateDeleted, now)
 		if statErr != nil { // it did not exist, so we created it: remove what we made
 			_ = os.RemoveAll(folder)

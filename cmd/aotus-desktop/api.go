@@ -57,6 +57,18 @@ func (b *Backend) AcceptNotice(id, notice string) error {
 	return do(b, func(ctx context.Context, c *client.Client) error { return c.AcceptNotice(ctx, id, notice) })
 }
 
+// DraftEmployee asks a subscription to draft a teammate from a description.
+// It waits for the subscription, so it has a longer limit than other calls.
+func (b *Backend) DraftEmployee(profileID, description string) (client.Draft, error) {
+	c, err := b.api()
+	if err != nil {
+		return client.Draft{}, err
+	}
+	ctx, cancel := context.WithTimeout(b.ctx, 4*time.Minute)
+	defer cancel()
+	return c.DraftEmployee(ctx, profileID, description)
+}
+
 // FindCLIs reports the official CLIs on the daemon's computer and their sign-in.
 func (b *Backend) FindCLIs() ([]client.FoundCLI, error) {
 	return call(b, func(ctx context.Context, c *client.Client) ([]client.FoundCLI, error) { return c.FindCLIs(ctx) })

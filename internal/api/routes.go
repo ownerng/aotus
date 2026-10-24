@@ -29,6 +29,7 @@ func (s *Server) register() {
 
 	s.handle("GET "+base+"/employees", s.listEmployees)
 	s.handle("POST "+base+"/employees", s.createEmployee)
+	s.handle("POST "+base+"/employees/draft", s.draftEmployee)
 	s.handle("GET "+base+"/employees/{id}", s.getEmployee)
 	s.handleEmployee("DELETE "+base+"/employees/{id}", s.deleteEmployee)
 	s.handleEmployee("POST "+base+"/employees/{id}/pause", s.pauseEmployee)
@@ -84,6 +85,7 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 		{orchestrator.ErrInvalid, http.StatusBadRequest, "invalid"},
 		{orchestrator.ErrInvalidProfile, http.StatusBadRequest, "invalid"},
 		{orchestrator.ErrCLINotInstalled, http.StatusBadRequest, "cli_not_installed"},
+		{orchestrator.ErrDraft, http.StatusUnprocessableEntity, "draft_unusable"},
 		{orchestrator.ErrBusy, http.StatusConflict, "busy"},
 		{orchestrator.ErrPaused, http.StatusConflict, "paused"},
 		{orchestrator.ErrNotTerminal, http.StatusConflict, "not_terminal"},
@@ -354,6 +356,7 @@ func (s *Server) createEmployee(w http.ResponseWriter, r *http.Request) {
 		ProfileID      string   `json:"profile_id"`
 		PermissionMode string   `json:"permission_mode"`
 		AllowedTools   []string `json:"allowed_tools"`
+		Soul           string   `json:"soul"`
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -363,13 +366,35 @@ func (s *Server) createEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 	e, err := s.cfg.Manager.Service().CreateEmployee(r.Context(), orchestrator.NewEmployee{
 		Name: in.Name, Role: in.Role, SystemPrompt: in.SystemPrompt, ProfileID: in.ProfileID,
-		PermissionMode: in.PermissionMode, AllowedTools: in.AllowedTools,
+		PermissionMode: in.PermissionMode, AllowedTools: in.AllowedTools, Soul: in.Soul,
 	})
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, s.toEmployeeDTO(r.Context(), e))
+}
+
+// draftEmployee asks a subscription to draft a teammate from a description.
+// Nothing is created: the client shows the draft and hires it with POST
+// /employees.
+func (s *Server) draftEmployee(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		ProfileID   string `json:"profile_id"`
+		Description string `json:"description"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if !s.requireProfile(w, r, in.ProfileID) {
+		return
+	}
+	d, err := s.cfg.Manager.DraftEmployee(r.Context(), in.ProfileID, in.Description)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"name": d.Name, "role": d.Role, "instructions": d.Instructions, "soul": d.Soul})
 }
 
 func (s *Server) getEmployee(w http.ResponseWriter, r *http.Request) {

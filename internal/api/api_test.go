@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -641,5 +643,43 @@ func TestFindCLIsReportsInstalledAndSignedIn(t *testing.T) {
 	a.setUpAccess(t)
 	if code, _ := a.asTailnet(t, anaLogin, "laptop", "GET", "/api/v1/clis", nil, nil); code != 403 {
 		t.Fatalf("a guest got GET /clis = %d; want 403", code)
+	}
+}
+
+func TestDraftEmployeeRoute(t *testing.T) {
+	a := newAPI(t)
+	drafter := a.fakeProfile(t, "drafter", providertest.Drafted, "structured")
+	var d struct{ Name, Role, Instructions, Soul string }
+	a.call(t, "POST", "/api/v1/employees/draft", map[string]string{"profile_id": drafter, "description": "Someone to review payment PRs"}, 200, &d)
+	if d.Name != "Vera" || d.Instructions == "" || !strings.Contains(d.Soul, "# Vera") {
+		t.Fatalf("draft = %+v", d)
+	}
+	var list []any
+	a.call(t, "GET", "/api/v1/employees", nil, 200, &list)
+	if len(list) != 0 {
+		t.Fatal("drafting created an employee")
+	}
+
+	// Hiring the draft writes SOUL.md into the employee's folder.
+	var e struct{ ID string }
+	a.call(t, "POST", "/api/v1/employees", map[string]any{"name": d.Name, "role": d.Role, "system_prompt": d.Instructions, "soul": d.Soul, "profile_id": drafter}, 201, &e)
+	b, err := os.ReadFile(filepath.Join(a.layout.EmployeesDir(), "vera", "SOUL.md"))
+	if err != nil || !strings.Contains(string(b), "Correctness first.") {
+		t.Fatalf("SOUL.md = %q, %v", b, err)
+	}
+
+	pong := a.fakeProfile(t, "pong", providertest.Hello, "structured")
+	resp, body := a.raw(t, "POST", "/api/v1/employees/draft", token, map[string]string{"profile_id": pong, "description": "a reviewer"}, nil)
+	if resp.StatusCode != 422 || !strings.Contains(string(body), "draft_unusable") {
+		t.Fatalf("an unusable answer = %d %s; want 422 draft_unusable", resp.StatusCode, body)
+	}
+	resp, body = a.raw(t, "POST", "/api/v1/employees/draft", token, map[string]string{"profile_id": pong, "description": " "}, nil)
+	if resp.StatusCode != 400 {
+		t.Fatalf("an empty description = %d %s; want 400", resp.StatusCode, body)
+	}
+	// A guest drafts only on a profile shared with them.
+	a.setUpAccess(t)
+	if code, _ := a.asTailnet(t, anaLogin, "laptop", "POST", "/api/v1/employees/draft", map[string]string{"profile_id": drafter, "description": "x"}, nil); code != 403 {
+		t.Fatalf("a guest drafting on an unshared profile = %d; want 403", code)
 	}
 }

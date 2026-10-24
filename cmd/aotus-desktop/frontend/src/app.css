@@ -206,3 +206,10 @@ p { margin: 0 0 8px; }
   label { margin: 12px 0 6px; }
   h3.section { margin: 18px 0 8px; }
 }
+
+/* a draft under review: name and role edit in place */
+.title-input { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; font-size: 22px; font-weight: 500; letter-spacing: -0.015em; }
+.role-input { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; color: var(--text-2); }
+.title-input:hover, .role-input:hover { border-bottom-color: var(--line-strong); }
+.title-input:focus, .role-input:focus { border-bottom-color: #6a6a6a; }
+button.chip:hover { color: var(--text); border-color: var(--line-strong); }

@@ -144,9 +144,15 @@ func (d codexDialect) Turn(t TurnRequest) (Command, Parser, error) {
 		}
 		args = append(args, t.SessionID, "-")
 	}
+	// `codex exec` has no system prompt flag: the employee's instructions open
+	// the first turn of a session, and the resumed session keeps them.
+	stdin := t.Prompt
+	if sp := strings.TrimSpace(t.Request.SystemPrompt); sp != "" && t.SessionID == "" {
+		stdin = "These are your standing instructions for this whole conversation:\n<instructions>\n" + sp + "\n</instructions>\n\n" + t.Prompt
+	}
 	return Command{
 		Spec:  proc.Spec{Path: p.Binary, Args: args, Dir: t.Request.Dir, Env: MergeEnv(ProfileEnv(p, d.lookup), t.Request.ExtraEnv)},
-		Stdin: t.Prompt,
+		Stdin: stdin,
 	}, &codexParser{requested: map[string]bool{}}, nil
 }
 

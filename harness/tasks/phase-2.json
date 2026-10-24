@@ -1050,7 +1050,7 @@
     "id": "P2-021",
     "phase": 2,
     "title": "A teammate sets itself up from a description",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-020"
     ],
@@ -1106,7 +1106,8 @@
       "cmd/aotus/",
       "cmd/aotus-desktop/",
       "docs/"
-    ]
+    ],
+    "completed_at": "2026-10-24"
   },
   {
     "id": "P2-022",

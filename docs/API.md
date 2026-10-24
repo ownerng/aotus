@@ -85,8 +85,9 @@ A profile is how to reach one subscription: which official CLI, with its own iso
 
 | Method and path | Purpose |
 | --- | --- |
+| `POST /employees/draft` | `{profile_id, description}`. The subscription of that profile drafts a teammate from the description, in one short structured turn in a scratch folder (no employee's turn, no history): `200 {name, role, instructions, soul}`. Nothing is created; hire it with `POST /employees`. `soul` is the content of its SOUL.md. `422 draft_unusable` when the answer is not a usable teammate, `409 notice_required` for a Claude profile whose chat notice is not accepted. A guest drafts only on a shared profile. |
 | `GET /employees` | List. Each: `id, name, role, system_prompt, profile_id, state` (`active`/`paused`), `permission_mode, allowed_tools, created_at`, and live status: `mode, working, turn_id, terminal_running`. |
-| `POST /employees` | Create `{name, role, system_prompt, profile_id, permission_mode, allowed_tools}`. `201`. |
+| `POST /employees` | Create `{name, role, system_prompt, profile_id, permission_mode, allowed_tools, soul}`. `soul` (optional) is written as SOUL.md in the employee's folder and joined to its instructions each time its session starts. `201`. |
 | `GET /employees/{id}` | One employee. |
 | `DELETE /employees/{id}` | Retire: work stops, the folder goes to the trash, the history and audit log are kept. |
 | `POST /employees/{id}/pause`, `/resume` | `204`. Pausing stops the current work. |

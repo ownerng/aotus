@@ -80,7 +80,15 @@ const (
 	// Argv reports how the CLI was started: binary, arguments, environment and
 	// what arrived on stdin.
 	Argv Scenario = "argv"
+	// Drafted answers a teammate draft as a model would: a short sentence and
+	// the JSON object in a fenced block (DraftedJSON).
+	Drafted Scenario = "drafted"
 )
+
+// DraftedJSON is the object the Drafted scenario answers with.
+const DraftedJSON = `{"name": "Vera", "role": "Reviews pull requests for the payments service", ` +
+	`"instructions": "You review every open pull request that touches billing. Ask before approving anything that changes money flows.", ` +
+	`"soul": "# Vera\n\n## Character\nCalm, exact and kind.\n\n## Values\nCorrectness first."}`
 
 // MaybeRunFakeCLI runs the fake CLI and exits when the process was started as
 // one; otherwise it returns immediately. Call it first in TestMain.
@@ -244,6 +252,12 @@ func runFakeCLI(args []string) {
 		for _, kv := range os.Environ() {
 			out.text("ENV:" + kv)
 		}
+		out.done()
+	case Drafted:
+		out.session(session)
+		out.text("Here is the teammate:\n\n```json\n")
+		out.text(DraftedJSON)
+		out.text("\n```")
 		out.done()
 	case Chatty:
 		out.session(session)

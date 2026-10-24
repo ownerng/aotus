@@ -165,7 +165,7 @@ func Dial(ctx context.Context, conn Connection) (*Client, error) {
 	}
 	c := &Client{
 		base:   "http://" + conn.Address + "/api/v1",
-		http:   &http.Client{Timeout: 60 * time.Second},
+		http:   &http.Client{}, // each call bounds itself (callTimeout)
 		remote: conn.Name,
 	}
 	if _, err := c.Status(ctx); err != nil {

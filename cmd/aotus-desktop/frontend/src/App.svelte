@@ -37,8 +37,8 @@
   <aside class="side">
     <div class="brand"><Mark size={18} looking /><span>Aotus</span></div>
     <nav>
-      <button class="item new" title="New employee" class:on={app.view === "new-employee"} onclick={() => go("new-employee")}><Icon name="plus" /><span class="grow">New employee</span></button>
-      {#if app.employees.length}<div class="heading">Employees</div>{/if}
+      <button class="item new" title="New teammate" class:on={app.view === "new-employee"} onclick={() => go("new-employee")}><Icon name="plus" /><span class="grow">New teammate</span></button>
+      {#if app.employees.length}<div class="heading">Teammates</div>{/if}
       {#each app.employees as e (e.id)}
         <button class="item" title={`${e.name} · ${sub(e)}`} class:on={(app.view === "chat" || app.view === "terminal") && app.selected === e.id} onclick={() => app.open(e.id)}>
           <Avatar name={e.name} status={dot(e)} />
