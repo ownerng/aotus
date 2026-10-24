@@ -173,6 +173,8 @@ type Profile struct {
 	BaseURL         string            `json:"base_url,omitempty"`
 	AcceptedNotices []string          `json:"accepted_notices"`
 	ExtraEnv        map[string]string `json:"extra_env,omitempty"`
+	// ComputerLogin: the CLI uses the sign-in already on the daemon's computer.
+	ComputerLogin bool `json:"computer_login"`
 }
 
 // NewProfile is the input of CreateProfile.
@@ -184,6 +186,9 @@ type NewProfile struct {
 	Model    string            `json:"model,omitempty"`
 	BaseURL  string            `json:"base_url,omitempty"`
 	ExtraEnv map[string]string `json:"extra_env,omitempty"`
+	// ComputerLogin uses the sign-in already on the daemon's computer instead
+	// of a separate one for this profile (ADR 0015).
+	ComputerLogin bool `json:"computer_login,omitempty"`
 }
 
 // Detection is what the daemon found out about a profile's CLI.

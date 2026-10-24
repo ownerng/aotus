@@ -127,6 +127,7 @@ type profileDTO struct {
 	AcceptedNotices []string          `json:"accepted_notices"`
 	ExtraEnv        map[string]string `json:"extra_env,omitempty"`
 	TermsCheckedAt  string            `json:"terms_checked_at,omitempty"`
+	ComputerLogin   bool              `json:"computer_login"`
 }
 
 func toProfileDTO(p orchestrator.Profile) profileDTO {
@@ -137,6 +138,7 @@ func toProfileDTO(p orchestrator.Profile) profileDTO {
 	return profileDTO{
 		ID: p.ID, Name: p.Name, Kind: string(p.Kind), Binary: p.Binary, Mode: string(p.Mode), Model: p.Model,
 		BaseURL: p.BaseURL, AcceptedNotices: notices, ExtraEnv: p.ExtraEnv, TermsCheckedAt: p.TermsCheckedAt,
+		ComputerLogin: p.ComputerLogin,
 	}
 }
 
@@ -162,13 +164,15 @@ func (s *Server) createProfile(w http.ResponseWriter, r *http.Request) {
 		Model    string            `json:"model"`
 		BaseURL  string            `json:"base_url"`
 		ExtraEnv map[string]string `json:"extra_env"`
+		// ComputerLogin uses the sign-in already on the daemon's computer.
+		ComputerLogin bool `json:"computer_login"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
 	p, err := s.cfg.Manager.CreateProfile(r.Context(), orchestrator.NewProfile{
 		Kind: kindOf(in.Kind), Name: in.Name, Binary: in.Binary, Mode: modeOf(in.Mode), Model: in.Model,
-		BaseURL: in.BaseURL, ExtraEnv: in.ExtraEnv,
+		BaseURL: in.BaseURL, ExtraEnv: in.ExtraEnv, ComputerLogin: in.ComputerLogin,
 	})
 	if err != nil {
 		s.fail(w, err)

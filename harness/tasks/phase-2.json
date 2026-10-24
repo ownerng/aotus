@@ -825,5 +825,92 @@
       "cmd/aotus-desktop/"
     ],
     "completed_at": "2026-10-24"
+  },
+  {
+    "id": "P2-018",
+    "phase": 2,
+    "title": "Use the sign-in already on this computer",
+    "status": "done",
+    "requirements": [
+      "F1",
+      "S2",
+      "S6"
+    ],
+    "description": "Every profile ran its CLI with a folder of its own (CLAUDE_CONFIG_DIR, CODEX_HOME under ~/.aotus/profiles), so a person already signed in to Claude Code or Codex on their computer had to log in again inside Aotus. A profile can now use the CLI's own sign-in on the computer that runs the daemon: Aotus does not point the CLI at a folder of its own, so the CLI finds the session it already has. Aotus still never reads, copies or forwards that session. It is the default when linking Claude Code or Codex from the app; a separate sign-in stays available. At most one such profile per CLI (two would share one state), it is never shared with a remote guest, and an API profile cannot use it. ADR 0015 records the change to ADR 0008 and its trade-offs, and docs/SECURITY.md rule 4 says it.",
+    "acceptance": [
+      "A profile linked with this computer's sign-in runs the CLI with its own default folder, and Check reports the existing login",
+      "Only one such profile per CLI; it cannot be shared with a guest",
+      "ADR 0015 and SECURITY.md record the decision and its trade-offs"
+    ],
+    "checks": [
+      {
+        "name": "provider tests",
+        "pkg": "./internal/provider",
+        "tests": [
+          "TestComputerLoginUsesTheCLIsOwnFolder"
+        ]
+      },
+      {
+        "name": "store tests",
+        "pkg": "./internal/store",
+        "tests": [
+          "TestProfileComputerLoginPersists"
+        ]
+      },
+      {
+        "name": "orchestrator tests",
+        "pkg": "./internal/orchestrator",
+        "tests": [
+          "TestOnlyOneComputerLoginPerCLI"
+        ]
+      },
+      {
+        "name": "api tests",
+        "pkg": "./internal/api",
+        "tests": [
+          "TestComputerLoginIsNeverShared"
+        ]
+      },
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "decision",
+        "file": "docs/DECISIONS/0015-computer-sign-in.md",
+        "contains": [
+          "Decision",
+          "Consequences",
+          "ADR 0008",
+          "never shared"
+        ]
+      },
+      {
+        "name": "security rule",
+        "file": "docs/SECURITY.md",
+        "contains": [
+          "sign-in already on this computer"
+        ]
+      }
+    ],
+    "paths": [
+      "internal/provider/",
+      "internal/store/",
+      "internal/orchestrator/",
+      "internal/api/",
+      "internal/client/",
+      "cmd/aotus/",
+      "cmd/aotus-desktop/",
+      "docs/"
+    ],
+    "docs": [
+      "docs/DECISIONS/0008-provider-integration-and-profiles.md",
+      "docs/SECURITY.md"
+    ],
+    "completed_at": "2026-10-24"
   }
 ]

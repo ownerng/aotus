@@ -40,7 +40,8 @@ Who may call a daemon remotely (the owner only)
 
 Subscriptions (profiles)
   profiles                        list profiles
-  profile add --kind claude|codex|openai-api --name NAME [--binary PATH] [--mode MODE] [--model MODEL]
+  profile add --kind claude|codex|openai-api --name NAME [--login computer|separate] [--binary PATH] [--mode MODE] [--model MODEL]
+                                  --login computer uses the CLI's sign-in already on the daemon's computer
   profile detect ID               what the CLI of a profile reports (installed, version, login)
   profile accept ID NOTICE        accept a notice (e.g. claude-headless)
   profile key ID                  store an API key; read from standard input, never from arguments
@@ -195,9 +196,16 @@ func (a *app) profiles() error {
 		return err
 	}
 	t := table(a.out)
-	fmt.Fprintln(t, "ID\tNAME\tKIND\tMODE\tMODEL")
+	fmt.Fprintln(t, "ID\tNAME\tKIND\tMODE\tSIGN-IN\tMODEL")
 	for _, p := range ps {
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\n", p.ID, p.Name, p.Kind, p.Mode, p.Model)
+		login := "separate"
+		switch {
+		case p.Kind == "openai-api":
+			login = "api key"
+		case p.ComputerLogin:
+			login = "this computer"
+		}
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\t%s\n", p.ID, p.Name, p.Kind, p.Mode, login, p.Model)
 	}
 	return t.Flush()
 }
@@ -216,8 +224,17 @@ func (a *app) profile(args []string) error {
 		fs.StringVar(&in.Mode, "mode", "", "")
 		fs.StringVar(&in.Model, "model", "", "")
 		fs.StringVar(&in.BaseURL, "base-url", "", "")
+		login := fs.String("login", "separate", "")
+		const usage = "usage: aotus profile add --kind claude|codex|openai-api --name NAME [--login computer|separate] [--binary PATH] [--mode MODE] [--model MODEL]"
 		if pos, err := parseFlags(fs, rest); err != nil || len(pos) > 0 || in.Kind == "" || in.Name == "" {
-			return usageError{"usage: aotus profile add --kind claude|codex|openai-api --name NAME [--binary PATH] [--mode MODE] [--model MODEL]"}
+			return usageError{usage}
+		}
+		switch *login {
+		case "computer":
+			in.ComputerLogin = true
+		case "separate":
+		default:
+			return usageError{`--login takes "computer" (the sign-in already on this computer) or "separate"`}
 		}
 		p, err := a.c.CreateProfile(a.ctx, in)
 		if err != nil {

@@ -79,6 +79,8 @@ type NewProfile struct {
 	Model    string
 	BaseURL  string
 	ExtraEnv map[string]string
+	// ComputerLogin uses the CLI's own sign-in on this computer (ADR 0015).
+	ComputerLogin bool
 }
 
 // CreateProfile makes a new profile with its own isolated configuration
@@ -101,7 +103,7 @@ func (m *Manager) CreateProfile(ctx context.Context, in NewProfile) (provider.Pr
 	if in.Mode == "" {
 		in.Mode = provider.DefaultMode(in.Kind)
 	}
-	p.Mode, p.Model, p.BaseURL, p.ExtraEnv = in.Mode, in.Model, in.BaseURL, in.ExtraEnv
+	p.Mode, p.Model, p.BaseURL, p.ExtraEnv, p.ComputerLogin = in.Mode, in.Model, in.BaseURL, in.ExtraEnv, in.ComputerLogin
 	if in.Kind == provider.KindOpenAI {
 		p.APIKeyRef = "profile/" + p.ID + "/api-key"
 	}

@@ -2,7 +2,7 @@
   import { Backend } from "../../bindings/aotus/cmd/aotus-desktop";
   import { app } from "./store.svelte";
   import TerminalView from "./TerminalView.svelte";
-  import { defaultMode, modeChoices, needsNotice } from "./profiles";
+  import { defaultLogin, defaultMode, loginChoices, modeChoices, needsNotice } from "./profiles";
 
   const kindName: Record<string, string> = { claude: "Claude Code", codex: "Codex CLI", "openai-api": "OpenAI-compatible API" };
   const kindTile: Record<string, string> = { claude: "CC", codex: "CX", "openai-api": "API" };
@@ -10,6 +10,9 @@
 
   let kind = $state("claude");
   let mode = $state(defaultMode("claude"));
+  let login = $state(defaultLogin("claude"));
+  // Where "this computer" is: the window may be talking to a daemon on a server.
+  const where = $derived(app.daemon?.remote ? app.daemon.connection : "this computer");
   let name = $state("");
   let apiKey = $state("");
   let model = $state("");
@@ -22,7 +25,7 @@
   async function add() {
     error = ""; busy = true;
     try {
-      const p = await Backend.CreateProfile({ kind, name: name.trim(), mode, model, base_url: baseURL } as any);
+      const p = await Backend.CreateProfile({ kind, name: name.trim(), mode, model, base_url: baseURL, computer_login: login === "computer" } as any);
       if (kind === "openai-api" && apiKey) await Backend.SetAPIKey(p.id, apiKey);
       name = ""; apiKey = ""; model = ""; baseURL = "";
       await app.refreshAll();
@@ -59,7 +62,7 @@
           <div class="tile">{kindTile[p.kind] ?? "?"}</div>
           <div class="grow">
             <b class="name">{p.name}</b>
-            <div class="desc ellipsis">{kindName[p.kind] ?? p.kind} · {modeName[p.mode] ?? p.mode}</div>
+            <div class="desc ellipsis">{kindName[p.kind] ?? p.kind} · {modeName[p.mode] ?? p.mode}{p.computer_login ? ` · sign-in on ${where}` : ""}</div>
             {#if detail[p.id]}<div class="faint tray-note" style="margin-top:2px">{detail[p.id]}</div>{/if}
             {#if needsNotice(p.kind, p.mode) && !p.accepted_notices?.includes("claude-headless")}
               <div class="notice">Chat mode uses the CLI's non-interactive mode; the provider's terms are ambiguous about it. <button style="margin-left:6px" onclick={() => accept(p.id)}>I understand</button></div>
@@ -77,7 +80,7 @@
     <h3 class="section">Link a subscription</h3>
     <div class="card">
       <label for="k" style="margin-top:0">Provider</label>
-      <select id="k" bind:value={kind} onchange={() => (mode = defaultMode(kind))}>
+      <select id="k" bind:value={kind} onchange={() => { mode = defaultMode(kind); login = defaultLogin(kind); }}>
         <option value="claude">Claude Code (Claude subscription)</option>
         <option value="codex">Codex CLI (ChatGPT subscription)</option>
         <option value="openai-api">OpenAI-compatible API (key)</option>
@@ -85,6 +88,11 @@
       <label for="n">Name</label>
       <input id="n" bind:value={name} placeholder="e.g. Personal Claude" />
       {#if kind !== "openai-api"}
+        <label for="lg">Sign-in</label>
+        <select id="lg" bind:value={login}>
+          {#each loginChoices(where) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+        </select>
+        {#if login === "computer"}<p class="faint tray-note" style="margin-top:8px">If you are already signed in to the CLI on {where}, there is nothing else to do. Aotus never reads your sign-in; the CLI uses it as in your terminal, with your settings too (hooks, MCP servers), and its sessions show up in your CLI's history. Choose a separate sign-in to keep them apart.</p>{/if}
         <label for="md">How it works</label>
         <select id="md" bind:value={mode}>
           {#each modeChoices(kind) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}

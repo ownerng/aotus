@@ -30,3 +30,20 @@ export function modeChoices(kind: string): { value: Mode; label: string }[] {
 export function needsNotice(kind: string, mode: string): boolean {
   return kind === "claude" && mode === "structured";
 }
+
+export type Login = "computer" | "separate";
+
+// defaultLogin: a CLI subscription uses the sign-in already on the computer
+// that runs Aotus, so a person signed in to Claude Code or Codex does not log
+// in again (ADR 0015). An API profile has a key, not a sign-in.
+export function defaultLogin(kind: string): Login | "" {
+  return kind === "claude" || kind === "codex" ? "computer" : "";
+}
+
+// loginChoices names the two ways in, for the computer the window talks to.
+export function loginChoices(where: string): { value: Login; label: string }[] {
+  return [
+    { value: "computer", label: `Use the sign-in already on ${where}` },
+    { value: "separate", label: "A separate sign-in, just for Aotus" },
+  ];
+}

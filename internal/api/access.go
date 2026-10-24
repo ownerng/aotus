@@ -197,8 +197,14 @@ func (s *Server) shareProfile(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if _, err := s.cfg.Manager.Service().Profile(r.Context(), r.PathValue("id")); err != nil {
+	prof, err := s.cfg.Manager.Service().Profile(r.Context(), r.PathValue("id"))
+	if err != nil {
 		s.fail(w, err)
+		return
+	}
+	if prof.ComputerLogin {
+		// The owner's own sign-in on this computer is theirs alone (ADR 0015, S6).
+		writeError(w, http.StatusBadRequest, "own_sign_in", "this subscription uses the sign-in already on this computer, which is never shared; link a separate sign-in to share one")
 		return
 	}
 	role, err := s.cfg.Store.RoleOf(r.Context(), in.Login)

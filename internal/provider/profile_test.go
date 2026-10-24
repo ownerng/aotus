@@ -351,3 +351,55 @@ func TestVersionComparison(t *testing.T) {
 		}
 	}
 }
+
+func TestComputerLoginUsesTheCLIsOwnFolder(t *testing.T) {
+	l := datadir.Layout{Root: t.TempDir()}
+	for _, kind := range []provider.Kind{provider.KindClaude, provider.KindCodex} {
+		v := map[provider.Kind]string{provider.KindClaude: "CLAUDE_CONFIG_DIR", provider.KindCodex: "CODEX_HOME"}[kind]
+		p, err := provider.NewProfile(l, kind, "mine", "/usr/bin/"+string(kind))
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.ComputerLogin = true
+		if err := p.Validate(l); err != nil {
+			t.Fatalf("%s on the computer's sign-in: %v", kind, err)
+		}
+
+		// No folder of Aotus: the CLI uses its default, under HOME, as in a terminal.
+		plain := func(name string) (string, bool) {
+			if name == "HOME" {
+				return "/home/u", true
+			}
+			return "", false
+		}
+		e := envMap(provider.ProfileEnv(p, plain))
+		if _, set := e[v]; set || e["HOME"] != "/home/u" {
+			t.Fatalf("%s environment = %v; want no %s (the CLI's default folder) and HOME passed", kind, e, v)
+		}
+		// A folder the person chose for the CLI in their own environment is kept.
+		chosen := func(name string) (string, bool) {
+			if name == v {
+				return "/home/u/custom", true
+			}
+			return plain(name)
+		}
+		if got := envMap(provider.ProfileEnv(p, chosen))[v]; got != "/home/u/custom" {
+			t.Fatalf("%s: %s = %q; want the person's own choice kept", kind, v, got)
+		}
+
+		// A separate sign-in still gets the profile's own folder, whatever the environment says.
+		p.ComputerLogin = false
+		if got := envMap(provider.ProfileEnv(p, chosen))[v]; got != p.ConfigDir {
+			t.Fatalf("%s separate sign-in: %s = %q; want %q", kind, v, got, p.ConfigDir)
+		}
+	}
+
+	api, err := provider.NewProfile(l, provider.KindOpenAI, "api", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	api.ComputerLogin = true
+	if err := api.Validate(l); err == nil {
+		t.Fatal("an API profile accepted the computer's sign-in; it has no CLI")
+	}
+}

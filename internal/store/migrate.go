@@ -214,6 +214,17 @@ var migrations = []Migration{
 		) STRICT;
 		`,
 	},
+	{
+		Version: 8,
+		Name:    "computer_login",
+		SQL: `
+		-- A profile may use the CLI's own sign-in on this computer instead of a
+		-- folder of its own (ADR 0015). Two such profiles of one CLI would share
+		-- one state, so there is at most one per kind.
+		ALTER TABLE profiles ADD COLUMN computer_login INTEGER NOT NULL DEFAULT 0 CHECK (computer_login IN (0, 1));
+		CREATE UNIQUE INDEX profiles_one_computer_login ON profiles (kind) WHERE computer_login = 1;
+		`,
+	},
 }
 
 // applyMigrations applies, in version order and each in its own transaction,

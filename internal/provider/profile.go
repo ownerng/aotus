@@ -46,8 +46,12 @@ type Profile struct {
 	Kind      Kind
 	Binary    string // path of the official CLI
 	ConfigDir string // isolated configuration directory of this profile
-	Mode      Mode   // default integration mode
-	Model     string // optional model override
+	// ComputerLogin: the CLI runs with its own default folder, so it uses the
+	// sign-in already on the computer that runs the daemon (ADR 0015). Aotus
+	// still never reads that folder. ConfigDir is then unused.
+	ComputerLogin bool
+	Mode          Mode   // default integration mode
+	Model         string // optional model override
 
 	// ExtraEnv is non-secret static configuration for the CLI, for example a
 	// proxy. Names that look like credentials are rejected.
@@ -125,6 +129,8 @@ func (p Profile) Validate(l datadir.Layout) error {
 		return fmt.Errorf("provider: profile %s needs the path of the CLI", p.ID)
 	case p.ConfigDir == "":
 		return fmt.Errorf("provider: profile %s needs its own configuration directory", p.ID)
+	case p.ComputerLogin && !HasCLI(p.Kind):
+		return fmt.Errorf("provider: profile %s: only a CLI subscription can use the sign-in already on this computer", p.ID)
 	}
 	if !within(l.ProfilesDir(), p.ConfigDir) {
 		return fmt.Errorf("provider: profile %s: configuration directory %s must be inside %s", p.ID, p.ConfigDir, l.ProfilesDir())
@@ -192,8 +198,17 @@ func ProfileEnv(p Profile, lookup func(string) (string, bool)) []string {
 	for k, v := range p.ExtraEnv {
 		env[k] = v
 	}
-	if name, ok := configEnvVar[p.Kind]; ok && p.ConfigDir != "" {
-		env[name] = p.ConfigDir
+	if name, ok := configEnvVar[p.Kind]; ok {
+		switch {
+		case p.ComputerLogin:
+			// The CLI's own folder: its default, or the one the person chose
+			// for it in the daemon's environment, as in their own terminal.
+			if v, ok := lookup(name); ok && v != "" {
+				env[name] = v
+			}
+		case p.ConfigDir != "":
+			env[name] = p.ConfigDir
+		}
 	}
 	out := make([]string, 0, len(env))
 	for k, v := range env {

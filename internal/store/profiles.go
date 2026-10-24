@@ -16,9 +16,11 @@ type ProfileRow struct {
 	ID, Name, Kind, Binary, ConfigDir string
 	Mode, Model, BaseURL, APIKeyRef   string
 	TermsCheckedAt                    string
-	AcceptedNotices                   []string
-	ExtraEnv                          map[string]string
-	CreatedAt                         time.Time
+	// ComputerLogin: the CLI uses its own sign-in on this computer (ADR 0015).
+	ComputerLogin   bool
+	AcceptedNotices []string
+	ExtraEnv        map[string]string
+	CreatedAt       time.Time
 }
 
 // PutProfile creates or updates a profile.
@@ -30,18 +32,19 @@ func (s *Store) PutProfile(ctx context.Context, p ProfileRow) error {
 		created = time.Now()
 	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO profiles (id, name, kind, binary, config_dir, mode, model, base_url, api_key_ref, terms_checked_at, accepted_notices, extra_env, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO profiles (id, name, kind, binary, config_dir, mode, model, base_url, api_key_ref, terms_checked_at, accepted_notices, extra_env, created_at, computer_login)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET
 			name = excluded.name, kind = excluded.kind, binary = excluded.binary, config_dir = excluded.config_dir,
 			mode = excluded.mode, model = excluded.model, base_url = excluded.base_url, api_key_ref = excluded.api_key_ref,
-			terms_checked_at = excluded.terms_checked_at, accepted_notices = excluded.accepted_notices, extra_env = excluded.extra_env`,
+			terms_checked_at = excluded.terms_checked_at, accepted_notices = excluded.accepted_notices, extra_env = excluded.extra_env,
+			computer_login = excluded.computer_login`,
 		p.ID, p.Name, p.Kind, p.Binary, p.ConfigDir, p.Mode, p.Model, p.BaseURL, p.APIKeyRef, p.TermsCheckedAt,
-		string(notices), string(env), timeText(created))
+		string(notices), string(env), timeText(created), p.ComputerLogin)
 	return classify(err)
 }
 
-const profileColumns = `id, name, kind, binary, config_dir, mode, model, base_url, api_key_ref, terms_checked_at, accepted_notices, extra_env, created_at`
+const profileColumns = `id, name, kind, binary, config_dir, mode, model, base_url, api_key_ref, terms_checked_at, accepted_notices, extra_env, created_at, computer_login`
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -49,7 +52,7 @@ func scanProfile(r scanner) (ProfileRow, error) {
 	var p ProfileRow
 	var notices, env, created string
 	if err := r.Scan(&p.ID, &p.Name, &p.Kind, &p.Binary, &p.ConfigDir, &p.Mode, &p.Model, &p.BaseURL, &p.APIKeyRef,
-		&p.TermsCheckedAt, &notices, &env, &created); err != nil {
+		&p.TermsCheckedAt, &notices, &env, &created, &p.ComputerLogin); err != nil {
 		return ProfileRow{}, err
 	}
 	if err := json.Unmarshal([]byte(notices), &p.AcceptedNotices); err != nil {

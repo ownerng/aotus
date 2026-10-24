@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defaultMode, modeChoices, needsNotice } from "./profiles.ts";
+import { defaultLogin, defaultMode, loginChoices, modeChoices, needsNotice } from "./profiles.ts";
 
 test("each provider gets the default the terms decision sets", () => {
   assert.equal(defaultMode("codex"), "structured");
@@ -18,4 +18,14 @@ test("only Claude's structured mode is behind the notice", () => {
   assert.equal(needsNotice("claude", "structured"), true);
   assert.equal(needsNotice("claude", "terminal"), false);
   assert.equal(needsNotice("codex", "structured"), false);
+});
+
+test("a CLI subscription uses this computer's sign-in by default", () => {
+  assert.equal(defaultLogin("claude"), "computer");
+  assert.equal(defaultLogin("codex"), "computer");
+  assert.equal(defaultLogin("openai-api"), "");
+  const c = loginChoices("this computer");
+  assert.deepEqual(c.map((x) => x.value), ["computer", "separate"]);
+  assert.match(c[0].label, /already on this computer/);
+  assert.match(loginChoices("vps").at(0)!.label, /already on vps/);
 });

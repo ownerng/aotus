@@ -122,3 +122,40 @@ func TestAuditIsAppendOnlyInTheDatabase(t *testing.T) {
 		t.Fatalf("audit = %+v, %v", rows, err)
 	}
 }
+
+func TestProfileComputerLoginPersists(t *testing.T) {
+	s, ctx := openTemp(t), context.Background()
+	mine := profileRow("mine")
+	mine.ComputerLogin = true
+	if err := s.PutProfile(ctx, mine); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Profile(ctx, "mine"); err != nil || !got.ComputerLogin {
+		t.Fatalf("profile = %+v, %v; want ComputerLogin kept", got, err)
+	}
+	separate := profileRow("separate")
+	if err := s.PutProfile(ctx, separate); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Profile(ctx, "separate"); got.ComputerLogin {
+		t.Fatal("a profile with its own folder came back as using the computer's sign-in")
+	}
+
+	// Two profiles of one CLI on the computer's sign-in would share one state.
+	second := profileRow("second")
+	second.ComputerLogin = true
+	if err := s.PutProfile(ctx, second); !errors.Is(err, ErrConflict) {
+		t.Fatalf("a second computer sign-in for claude = %v, want ErrConflict", err)
+	}
+	// Another CLI may have its own.
+	codex := profileRow("codex")
+	codex.Kind, codex.ComputerLogin = "codex", true
+	if err := s.PutProfile(ctx, codex); err != nil {
+		t.Fatalf("codex on the computer's sign-in next to claude: %v", err)
+	}
+	// Updating the one that has it is not a conflict.
+	mine.Model = "changed"
+	if err := s.PutProfile(ctx, mine); err != nil {
+		t.Fatalf("updating the computer sign-in profile: %v", err)
+	}
+}

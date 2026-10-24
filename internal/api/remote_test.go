@@ -270,3 +270,45 @@ func TestRebindingAndOriginStillRefusedOnTailnet(t *testing.T) {
 		t.Fatalf("a web page on the tailnet = %d %s, want 403 bad_origin", code, b)
 	}
 }
+
+func TestComputerLoginIsNeverShared(t *testing.T) {
+	a := newAPI(t)
+	a.setUpAccess(t)
+	var p struct {
+		ID            string `json:"id"`
+		ComputerLogin bool   `json:"computer_login"`
+	}
+	a.call(t, "POST", "/api/v1/profiles", map[string]any{"kind": "claude", "name": "mine", "binary": "/usr/bin/claude", "computer_login": true}, 201, &p)
+	if !p.ComputerLogin {
+		t.Fatalf("created profile = %+v; want computer_login", p)
+	}
+	var list []struct {
+		ID            string `json:"id"`
+		ComputerLogin bool   `json:"computer_login"`
+	}
+	a.call(t, "GET", "/api/v1/profiles", nil, 200, &list)
+	if len(list) != 1 || !list[0].ComputerLogin {
+		t.Fatalf("GET /profiles = %+v", list)
+	}
+
+	// The owner cannot share their own sign-in, even with someone on the list.
+	resp, b := a.raw(t, "POST", "/api/v1/profiles/"+p.ID+"/shares", token, map[string]any{"login": anaLogin}, nil)
+	if resp.StatusCode != 400 || !strings.Contains(string(b), "own_sign_in") {
+		t.Fatalf("sharing the computer's sign-in = %d %s; want 400 own_sign_in", resp.StatusCode, b)
+	}
+	// So a guest cannot create an employee on it.
+	if code, b := a.asTailnet(t, anaLogin, "laptop", "POST", "/api/v1/employees", map[string]any{"name": "Spy", "profile_id": p.ID}, nil); code != 403 {
+		t.Fatalf("a guest using the owner's sign-in = %d %s; want 403", code, b)
+	}
+	// A second profile of the same CLI on it is refused with a reason.
+	resp, b = a.raw(t, "POST", "/api/v1/profiles", token, map[string]any{"kind": "claude", "name": "again", "binary": "/usr/bin/claude", "computer_login": true}, nil)
+	if resp.StatusCode != 400 || !strings.Contains(string(b), "already uses the sign-in") {
+		t.Fatalf("a second computer sign-in = %d %s; want 400 saying which profile has it", resp.StatusCode, b)
+	}
+	// A separate sign-in of the same CLI is still shareable.
+	var sep struct {
+		ID string `json:"id"`
+	}
+	a.call(t, "POST", "/api/v1/profiles", map[string]any{"kind": "claude", "name": "for ana", "binary": "/usr/bin/claude"}, 201, &sep)
+	a.call(t, "POST", "/api/v1/profiles/"+sep.ID+"/shares", map[string]any{"login": anaLogin}, 204, nil)
+}

@@ -82,3 +82,33 @@ func TestCreateProfileStoresTheDefaultMode(t *testing.T) {
 		}
 	}
 }
+
+func TestOnlyOneComputerLoginPerCLI(t *testing.T) {
+	r := newRig(t, Options{FindCLI: func(k provider.Kind) (string, error) { return "/opt/found/" + string(k), nil }})
+	ctx := context.Background()
+
+	mine, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: provider.KindClaude, Name: "My Claude", ComputerLogin: true})
+	if err != nil {
+		t.Fatalf("Claude on the computer's sign-in: %v", err)
+	}
+	if stored, _ := r.svc.Profile(ctx, mine.ID); !stored.ComputerLogin {
+		t.Fatal("the computer's sign-in was not stored")
+	}
+	_, err = r.mgr.CreateProfile(ctx, NewProfile{Kind: provider.KindClaude, Name: "Again", ComputerLogin: true})
+	if !errors.Is(err, ErrInvalidProfile) || !strings.Contains(err.Error(), "My Claude") {
+		t.Fatalf("a second Claude profile on the computer's sign-in: %v; want ErrInvalidProfile naming the first", err)
+	}
+	if _, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: provider.KindCodex, Name: "My Codex", ComputerLogin: true}); err != nil {
+		t.Fatalf("Codex on the computer's sign-in next to Claude: %v", err)
+	}
+	if _, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: provider.KindClaude, Name: "Work", ComputerLogin: false}); err != nil {
+		t.Fatalf("a separate Claude sign-in next to the computer's: %v", err)
+	}
+	// Accepting a notice rewrites the profile: the setting must survive it.
+	if err := r.mgr.AcceptNotice(ctx, mine.ID, provider.NoticeClaudeHeadless); err != nil {
+		t.Fatal(err)
+	}
+	if stored, _ := r.svc.Profile(ctx, mine.ID); !stored.ComputerLogin {
+		t.Fatal("accepting a notice dropped the computer's sign-in")
+	}
+}

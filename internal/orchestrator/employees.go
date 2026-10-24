@@ -90,15 +90,31 @@ func (s *Service) AddProfile(ctx context.Context, p provider.Profile) error {
 	if err := p.Validate(s.st.Layout()); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidProfile, err)
 	}
-	if err := p.EnsureConfigDir(); err != nil {
+	if p.ComputerLogin {
+		// Two profiles of one CLI on the computer's sign-in would share one
+		// state (the store refuses it too; this says which profile has it).
+		others, err := s.Profiles(ctx)
+		if err != nil {
+			return err
+		}
+		for _, o := range others {
+			if o.ComputerLogin && o.Kind == p.Kind && o.ID != p.ID {
+				return fmt.Errorf("%w: %q already uses the sign-in on this computer for this CLI; use a separate sign-in for another subscription", ErrInvalidProfile, o.Name)
+			}
+		}
+	} else if err := p.EnsureConfigDir(); err != nil {
 		return err
 	}
-	return s.st.PutProfile(ctx, store.ProfileRow{
+	err := s.st.PutProfile(ctx, store.ProfileRow{
 		ID: p.ID, Name: p.Name, Kind: string(p.Kind), Binary: p.Binary, ConfigDir: p.ConfigDir,
 		Mode: string(p.Mode), Model: p.Model, BaseURL: p.BaseURL, APIKeyRef: p.APIKeyRef,
-		TermsCheckedAt: p.TermsCheckedAt, AcceptedNotices: p.AcceptedNotices, ExtraEnv: p.ExtraEnv,
+		TermsCheckedAt: p.TermsCheckedAt, ComputerLogin: p.ComputerLogin, AcceptedNotices: p.AcceptedNotices, ExtraEnv: p.ExtraEnv,
 		CreatedAt: s.clock(),
 	})
+	if p.ComputerLogin && errors.Is(err, store.ErrConflict) {
+		return fmt.Errorf("%w: another profile already uses the sign-in on this computer for this CLI", ErrInvalidProfile)
+	}
+	return err
 }
 
 // Profile returns a stored profile.
@@ -143,7 +159,7 @@ func profileFromRow(r store.ProfileRow) provider.Profile {
 	return provider.Profile{
 		ID: r.ID, Name: r.Name, Kind: provider.Kind(r.Kind), Binary: r.Binary, ConfigDir: r.ConfigDir,
 		Mode: provider.Mode(r.Mode), Model: r.Model, BaseURL: r.BaseURL, APIKeyRef: r.APIKeyRef,
-		TermsCheckedAt: r.TermsCheckedAt, AcceptedNotices: r.AcceptedNotices, ExtraEnv: r.ExtraEnv,
+		TermsCheckedAt: r.TermsCheckedAt, ComputerLogin: r.ComputerLogin, AcceptedNotices: r.AcceptedNotices, ExtraEnv: r.ExtraEnv,
 	}
 }
 
