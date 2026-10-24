@@ -9,6 +9,8 @@
   import Avatar from "./Avatar.svelte";
   import Mark from "./Mark.svelte";
 
+  // embedded: shown inside the first-run flow, which has its own frame.
+  let { embedded = false }: { embedded?: boolean } = $props();
   type Step = "describe" | "drafting" | "review" | "manual";
   let step = $state<Step>("describe");
   let description = $state("");
@@ -55,7 +57,7 @@
   function manual() { error = ""; step = "manual"; }
 </script>
 
-<div class="page"><div class="inner">
+<div class={embedded ? "" : "page"}><div class="inner">
   {#if !app.profiles.length}
     <div class="empty">
       <h1>Link a subscription first</h1>
@@ -63,7 +65,7 @@
       <button class="primary" onclick={() => (app.view = "profiles")}>Go to subscriptions</button>
     </div>
   {:else if step === "describe"}
-    <h1>New teammate</h1>
+    <h1>{embedded ? "Meet your first teammate" : "New teammate"}</h1>
     <p class="lede">Say what you need help with, in your own words. Your teammate sets up its own name, role, instructions and SOUL.md; you review it before it starts.</p>
     <div class="card" style="margin-top:20px">
       <label for="d" style="margin-top:0">What do you need help with?</label>

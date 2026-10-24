@@ -33,6 +33,10 @@
   }
 </script>
 
+{#if app.view === "onboarding"}
+  <!-- The first run takes the whole window: no sidebar, nothing around it. -->
+  <div class="solo"><Onboarding /></div>
+{:else}
 <div class="shell">
   <aside class="side">
     <div class="brand"><Mark size={18} looking /><span class="wordmark">aotus</span></div>
@@ -92,8 +96,6 @@
           <TerminalView label={emp.name} open={(r, c) => Backend.OpenTerminal(emp.id, r, c)} />
         {/key}
       {/if}
-    {:else if app.view === "onboarding"}
-      <Onboarding />
     {:else if app.view === "new-employee"}
       <NewEmployee />
     {:else if app.view === "approvals"}
@@ -107,3 +109,4 @@
     {/if}
   </main>
 </div>
+{/if}

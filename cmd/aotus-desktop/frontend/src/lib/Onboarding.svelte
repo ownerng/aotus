@@ -7,6 +7,7 @@
   import { app, skipOnboarding } from "./store.svelte";
   import Mark from "./Mark.svelte";
   import Icon from "./Icon.svelte";
+  import NewEmployee from "./NewEmployee.svelte";
 
   let step = $state<"welcome" | "subscriptions" | "teammate">("welcome");
   let found = $state<FoundCLI[]>([]);
@@ -53,19 +54,28 @@
   }
 </script>
 
-<div class="page onboarding"><div class="inner">
+<header class="solo-top">
+  <Mark size={16} /><span class="wordmark">aotus</span>
+  <span class="grow"></span>
+  {#if step !== "welcome"}
+    <span class="steps" aria-label={step === "subscriptions" ? "Step 1 of 2" : "Step 2 of 2"}>
+      <span class="step" class:on={true}></span><span class="step" class:on={step === "teammate"}></span>
+    </span>
+  {/if}
+  <button class="ghost" onclick={skip}>{step === "teammate" ? "Later" : "Skip"}</button>
+</header>
+
+<div class="solo-body" class:center={step === "welcome"}><div class="solo-inner">
   {#if step === "welcome"}
-    <div class="empty" style="padding-top:48px">
-      <Mark size={44} looking />
-      <h1 style="font-size:28px; margin-top:18px">Teammates that keep working</h1>
+    <div class="empty" style="padding:0">
+      <Mark size={56} looking />
+      <h1 style="font-size:30px; margin-top:22px">Teammates that keep working</h1>
       <p class="lede">Aotus runs AI teammates on the subscriptions you already pay for (Claude, ChatGPT and more), on this computer. They have a name, a job and a memory, and they keep working when you close the window.</p>
-      <div class="row" style="margin-top:12px">
-        <button class="ghost" onclick={skip}>Skip for now</button>
+      <div class="row" style="margin-top:14px">
         <button class="primary" onclick={begin}>Get started</button>
       </div>
     </div>
   {:else if step === "subscriptions"}
-    <p class="faint tray-note">Step 1 of 2</p>
     <h1>Your subscriptions</h1>
     <p class="lede">These are the official CLIs on this computer. Aotus uses the sign-in you already have, as your terminal does, and never reads it.</p>
     <div class="list" style="margin-top:20px">
@@ -91,7 +101,6 @@
     {/if}
     {#if error}<p class="err" style="margin-top:12px">{error}</p>{/if}
     <div class="actions">
-      <button class="ghost" onclick={skip}>Skip</button>
       <button onclick={look} disabled={looking}>{looking ? "Looking…" : "Check again"}</button>
       {#if found.some((f) => f.linked) && !chosen.length}
         <button class="primary" onclick={() => (step = "teammate")}>Continue</button>
@@ -100,12 +109,6 @@
       {/if}
     </div>
   {:else}
-    <p class="faint tray-note">Step 2 of 2</p>
-    <h1>Meet your first teammate</h1>
-    <p class="lede">Tell Aotus what you need help with, in your own words. Your teammate sets up its own name, role and way of working, and you review it before it starts.</p>
-    <div class="actions" style="justify-content:flex-start">
-      <button class="primary" onclick={() => (app.view = "new-employee")}>Create my first teammate</button>
-      <button class="ghost" onclick={() => (app.view = "profiles")}>Later</button>
-    </div>
+    <NewEmployee embedded />
   {/if}
 </div></div>

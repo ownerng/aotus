@@ -7,15 +7,15 @@
 
 <svg width={size * 1.6} height={size} viewBox="0 0 32 20" aria-label="Aotus" role="img" class:looking>
   <g class="eyes">
-    <circle cx="9" cy="10" r="8.4" fill="#f2a93b" />
-    <circle cx="23" cy="10" r="8.4" fill="#f2a93b" />
-    <circle cx="9" cy="10" r="8.4" fill="none" stroke="#c97f1c" stroke-width="1" />
-    <circle cx="23" cy="10" r="8.4" fill="none" stroke="#c97f1c" stroke-width="1" />
+    <circle cx="8.4" cy="10" r="7.7" fill="#f2a93b" />
+    <circle cx="23.6" cy="10" r="7.7" fill="#f2a93b" />
+    <circle cx="8.4" cy="10" r="7.7" fill="none" stroke="#c97f1c" stroke-width="1" />
+    <circle cx="23.6" cy="10" r="7.7" fill="none" stroke="#c97f1c" stroke-width="1" />
     <g class="pupils">
-      <circle cx="9.8" cy="10.4" r="4.1" fill="#1b1206" />
-      <circle cx="23.8" cy="10.4" r="4.1" fill="#1b1206" />
-      <circle cx="11.2" cy="8.8" r="1.15" fill="#fff6e6" />
-      <circle cx="25.2" cy="8.8" r="1.15" fill="#fff6e6" />
+      <circle cx="9.2" cy="10.4" r="3.8" fill="#1b1206" />
+      <circle cx="24.4" cy="10.4" r="3.8" fill="#1b1206" />
+      <circle cx="10.5" cy="8.9" r="1.1" fill="#fff6e6" />
+      <circle cx="25.7" cy="8.9" r="1.1" fill="#fff6e6" />
     </g>
   </g>
 </svg>

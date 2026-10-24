@@ -217,4 +217,20 @@ p { margin: 0 0 8px; }
 .role-input { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; color: var(--text-2); }
 .title-input:hover, .role-input:hover { border-bottom-color: var(--line-strong); }
 .title-input:focus, .role-input:focus { border-bottom-color: var(--amber); }
+button.chip { text-align: left; }
 button.chip:hover { color: var(--text); border-color: var(--line-strong); }
+
+/* ---- the first run: the whole window, nothing around it ---- */
+.solo { height: 100%; display: flex; flex-direction: column; background: var(--bg); }
+.solo-top { display: flex; align-items: center; gap: 10px; padding: 16px 22px; flex: none; }
+.solo-top .wordmark { font-size: 17px; }
+.solo-body { flex: 1; min-height: 0; overflow: auto; padding: 24px 24px 48px; }
+.solo-body.center { display: flex; align-items: center; justify-content: center; padding-bottom: 12vh; }
+.solo-inner { max-width: 640px; margin: 0 auto; width: 100%; }
+.steps { display: flex; gap: 6px; margin-right: 6px; }
+.step { width: 22px; height: 4px; border-radius: 999px; background: var(--surface-3); }
+.step.on { background: var(--amber); }
+@media (max-height: 640px) { .solo-body { padding-top: 8px; } .solo-body.center { padding-bottom: 4vh; } }
+/* in the first run a row keeps its switch beside it, however narrow */
+.solo .lrow { flex-wrap: nowrap; align-items: center; }
+.solo .lrow > .grow { flex-basis: auto; }

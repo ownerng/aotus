@@ -1150,5 +1150,46 @@
       "docs/DESIGN.md"
     ],
     "completed_at": "2026-10-24"
+  },
+  {
+    "id": "P2-023",
+    "phase": 2,
+    "title": "Onboarding takes the whole window",
+    "status": "done",
+    "depends_on": [
+      "P2-020",
+      "P2-021"
+    ],
+    "requirements": [
+      "F16"
+    ],
+    "description": "The owner wants the first run to feel smooth and clean: the onboarding showed inside the app's shell, with the sidebar and its empty sections around it, and its last step sent the person into the app to create the first teammate. Now the onboarding takes the whole window, with only the mark, the steps and a way to skip, and the first teammate is described, reviewed and hired inside the same flow; hiring it opens its chat in the app.",
+    "acceptance": [
+      "No sidebar while the onboarding shows",
+      "The first teammate is created without leaving the onboarding",
+      "Skipping or hiring lands in the app with its sidebar"
+    ],
+    "checks": [
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "full-window onboarding",
+        "file": "cmd/aotus-desktop/frontend/src/App.svelte",
+        "contains": [
+          "solo",
+          "Onboarding"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/frontend/"
+    ],
+    "completed_at": "2026-10-24"
   }
 ]
