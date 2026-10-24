@@ -26,22 +26,22 @@
   <aside class="side">
     <div class="brand"><Mark size={18} looking /><span>Aotus</span></div>
     <nav>
-      <button class="item new" class:on={app.view === "new-employee"} onclick={() => go("new-employee")}><Icon name="plus" /><span class="grow">New employee</span></button>
+      <button class="item new" title="New employee" class:on={app.view === "new-employee"} onclick={() => go("new-employee")}><Icon name="plus" /><span class="grow">New employee</span></button>
       {#if app.employees.length}<div class="heading">Employees</div>{/if}
       {#each app.employees as e (e.id)}
-        <button class="item" class:on={(app.view === "chat" || app.view === "terminal") && app.selected === e.id} onclick={() => app.open(e.id)}>
+        <button class="item" title={`${e.name} · ${sub(e)}`} class:on={(app.view === "chat" || app.view === "terminal") && app.selected === e.id} onclick={() => app.open(e.id)}>
           <Avatar name={e.name} status={dot(e)} />
           <span class="grow"><span class="ellipsis" style="display:block; color:var(--text)">{e.name}</span><span class="sub ellipsis" style="display:block">{sub(e)}</span></span>
         </button>
       {/each}
     </nav>
     <footer>
-      <button class="item" class:on={app.view === "approvals"} onclick={() => go("approvals")}>
+      <button class="item" title="Approvals" class:on={app.view === "approvals"} onclick={() => go("approvals")}>
         <Icon name="approvals" /><span class="grow">Approvals</span>{#if app.approvals.length}<span class="badge">{app.approvals.length}</span>{/if}
       </button>
-      <button class="item" class:on={app.view === "profiles"} onclick={() => go("profiles")}><Icon name="subscriptions" /><span class="grow">Subscriptions</span></button>
-      <button class="item" class:on={app.view === "connections"} onclick={() => go("connections")}><Icon name="connections" /><span class="grow">Connections</span></button>
-      <button class="item" class:on={app.view === "settings"} onclick={() => go("settings")}><Icon name="settings" /><span class="grow">Settings</span></button>
+      <button class="item" title="Subscriptions" class:on={app.view === "profiles"} onclick={() => go("profiles")}><Icon name="subscriptions" /><span class="grow">Subscriptions</span></button>
+      <button class="item" title="Connections" class:on={app.view === "connections"} onclick={() => go("connections")}><Icon name="connections" /><span class="grow">Connections</span></button>
+      <button class="item" title="Settings" class:on={app.view === "settings"} onclick={() => go("settings")}><Icon name="settings" /><span class="grow">Settings</span></button>
       <button class="item" title="Where this window is connected" onclick={() => go("connections")}>
         <span class="dot" class:running={app.daemon?.connected} style:background={app.daemon && !app.daemon.connected ? "var(--bad)" : undefined}></span>
         <span class="grow sub ellipsis">{app.daemon?.remote ? app.daemon.connection : "This computer"}{#if app.daemon?.remote} · {app.daemon.role}{/if}</span>

@@ -165,3 +165,44 @@ p { margin: 0 0 8px; }
 .empty .lede { margin-bottom: 8px; }
 
 .tray-note { font-size: 13px; }
+
+/* ---- small windows: a 13-inch laptop, or a window beside another ----
+   Nothing may scroll sideways; the composer must always stay in view. */
+@media (max-width: 1000px) {
+  .shell { grid-template-columns: 224px 1fr; }
+  .page { padding: 28px 24px 40px; }
+  .msg { padding: 6px 18px; }
+  .composer-wrap { padding: 10px 16px 16px; }
+}
+@media (max-width: 820px) {
+  /* the sidebar becomes a rail of icons and avatars; names show on hover */
+  .shell { grid-template-columns: 64px 1fr; }
+  .side { padding: 12px 8px 8px; }
+  .brand { justify-content: center; padding: 4px 0 14px; }
+  .brand > span, .side .heading, .side .item > .grow { display: none; }
+  .side .item { justify-content: center; padding: 8px 0; position: relative; }
+  .side .badge { position: absolute; top: 2px; right: 4px; padding: 0 5px; min-width: 16px; font-size: 11px; }
+  .page { padding: 22px 18px 32px; }
+  h1 { font-size: 20px; }
+  .lrow { flex-wrap: wrap; padding: 10px 8px; }
+  .lrow > .grow { flex-basis: calc(100% - 58px); }
+  .lrow > button { margin-top: 0; }
+  .lrow > button:first-of-type { margin-left: 58px; }
+  .bar { flex-wrap: wrap; padding: 10px 14px; row-gap: 8px; }
+  .bar .tabs { margin-left: 0; order: 10; }
+  .msg { padding: 5px 12px; }
+  .msg.user .body { max-width: 92%; }
+  .composer-wrap { padding: 8px 10px 12px; }
+  .term-frame { margin: 10px; }
+  .card { padding: 16px; }
+  .actions { flex-wrap: wrap; }
+}
+@media (max-height: 640px) {
+  .page { padding-top: 20px; padding-bottom: 24px; }
+  .bar { min-height: 0; padding-top: 8px; padding-bottom: 8px; }
+  .composer textarea { height: 36px; }
+  .composer-wrap .hint { display: none; }
+  .empty { padding: 28px 16px; gap: 6px; }
+  label { margin: 12px 0 6px; }
+  h3.section { margin: 18px 0 8px; }
+}

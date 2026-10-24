@@ -777,5 +777,53 @@
       "docs/PRD.md"
     ],
     "completed_at": "2026-10-24"
+  },
+  {
+    "id": "P2-017",
+    "phase": 2,
+    "title": "The window fits a 13-inch screen and the layout adapts to small windows",
+    "status": "done",
+    "depends_on": [
+      "P2-016"
+    ],
+    "requirements": [
+      "F16"
+    ],
+    "description": "On a 13-inch laptop the owner could not see the content: the window opened at a fixed 1100x720, taller than the screen's work area once the top bar and scaling are counted, so the composer fell off the bottom, and the layout had no rules for narrow or short windows. The window now opens sized to the work area of its screen (never larger than 92% of it, never smaller than the minimum) and centred; the minimum size goes down so it can share a small screen. The layout adapts: under 1000 px the sidebar narrows, under 820 px it becomes a rail of icons and avatars, list rows wrap their actions, the employee header wraps, pages use less padding, and on short windows the composer and spacing shrink. Nothing scrolls sideways.",
+    "acceptance": [
+      "The window opens inside the screen's work area on a 1280x720 or smaller screen",
+      "No view scrolls sideways at 720x480; the composer is always visible in a chat",
+      "Every view stays usable from 720x480 to large screens"
+    ],
+    "checks": [
+      {
+        "name": "window fits",
+        "pkg": "./cmd/aotus-desktop",
+        "tests": [
+          "TestWindowFitsTheScreen"
+        ]
+      },
+      {
+        "name": "frontend",
+        "cmd": [
+          "sh",
+          "-c",
+          "cd cmd/aotus-desktop/frontend && npm run check && npm test && npm run build"
+        ]
+      },
+      {
+        "name": "responsive rules",
+        "file": "cmd/aotus-desktop/frontend/src/app.css",
+        "contains": [
+          "@media (max-width: 1000px)",
+          "@media (max-width: 820px)",
+          "@media (max-height: 640px)"
+        ]
+      }
+    ],
+    "paths": [
+      "cmd/aotus-desktop/"
+    ],
+    "completed_at": "2026-10-24"
   }
 ]

@@ -121,12 +121,21 @@ func main() {
 
 	win = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "Aotus",
-		Width:            1100,
-		Height:           720,
-		MinWidth:         720,
-		MinHeight:        480,
-		BackgroundColour: application.NewRGB(17, 18, 23),
+		Width:            wantWidth,
+		Height:           wantHeight,
+		MinWidth:         minWidth,
+		MinHeight:        minHeight,
+		BackgroundColour: application.NewRGB(11, 11, 11),
 		URL:              "/",
+	})
+	// Once the screens are known, open inside the work area of the window's
+	// screen: a 13-inch laptop has less room than the size the window asks for.
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		if sc, err := win.GetScreen(); err == nil && sc != nil {
+			w, h := fitWindow(sc.WorkArea.Width, sc.WorkArea.Height)
+			win.SetSize(w, h)
+			win.Center()
+		}
 	})
 	// Closing the window quits the app unless the user chose to keep it in the
 	// tray. Either way the daemon, and every employee, keeps running.
