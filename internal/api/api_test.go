@@ -10,13 +10,17 @@ import (
 
 	"github.com/coder/websocket"
 
+	"aotus/internal/api"
 	"aotus/internal/orchestrator"
 	"aotus/internal/provider"
 	"aotus/internal/provider/providertest"
 )
 
 func TestRequiresToken(t *testing.T) {
-	a := newAPI(t)
+	// This test sends hundreds of bad tokens on purpose: the limit on failed
+	// attempts is lifted so that every route must still answer 401 (the limit
+	// has its own test, TestFailedAttemptsAreRateLimited).
+	a := newAPIConfig(t, func(c *api.Config) { c.MaxFailures = 1 << 30 })
 	routes := a.handler.Routes()
 	if len(routes) < 30 {
 		t.Fatalf("only %d routes registered: the check below would prove little", len(routes))

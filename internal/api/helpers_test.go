@@ -76,6 +76,17 @@ func newAPI(t *testing.T, allowed ...string) *testAPI {
 // newAPIWith is newAPI with manager options (the key store is always memKeys).
 func newAPIWith(t *testing.T, opts orchestrator.Options, allowed ...string) *testAPI {
 	t.Helper()
+	return buildAPI(t, opts, nil, allowed...)
+}
+
+// newAPIConfig is newAPI with changes to the server's configuration.
+func newAPIConfig(t *testing.T, change func(*api.Config)) *testAPI {
+	t.Helper()
+	return buildAPI(t, orchestrator.Options{}, change)
+}
+
+func buildAPI(t *testing.T, opts orchestrator.Options, change func(*api.Config), allowed ...string) *testAPI {
+	t.Helper()
 	l := datadir.Layout{Root: filepath.Join(t.TempDir(), "aotus")}
 	st, err := store.Open(context.Background(), l)
 	if err != nil {
@@ -95,7 +106,11 @@ func newAPIWith(t *testing.T, opts orchestrator.Options, allowed ...string) *tes
 		_ = mgr.Shutdown(ctx)
 	})
 	broker := permissions.New(st)
-	h := api.New(api.Config{Manager: mgr, Broker: broker, Token: token, Version: "test", AllowedOrigins: allowed, Store: st, TailnetHosts: []string{"vps.tail1234.ts.net", "100.64.0.7"}})
+	cfg := api.Config{Manager: mgr, Broker: broker, Token: token, Version: "test", AllowedOrigins: allowed, Store: st, TailnetHosts: []string{"vps.tail1234.ts.net", "100.64.0.7"}}
+	if change != nil {
+		change(&cfg)
+	}
+	h := api.New(cfg)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return &testAPI{Server: srv, handler: h, layout: l, mgr: mgr, broker: broker, st: st, keys: keys}

@@ -420,7 +420,7 @@
     "id": "P2-009",
     "phase": 2,
     "title": "Remote security review and threat model",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-003",
       "P2-004"
@@ -465,7 +465,8 @@
     ],
     "docs": [
       "docs/SECURITY.md"
-    ]
+    ],
+    "completed_at": "2026-10-24"
   },
   {
     "id": "P2-010",

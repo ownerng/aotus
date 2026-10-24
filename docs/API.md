@@ -50,6 +50,7 @@ Every failure is `{"error": {"code": "<stable code>", "message": "<for humans>"}
 | 404 | `not_found`, `profile_not_found`, `request_not_found` |
 | 409 | `name_taken`, `busy` (employee already has a turn), `paused`, `not_terminal`, `not_running`, `no_turn`, `profile_in_use`, `notice_required` |
 | 413 | `too_large` |
+| 429 | `too_many_attempts`: the caller failed too often (10 times in a minute by default: wrong tokens per address on loopback, refusals per login on the tailnet). `Retry-After` says when to try again. A valid token is never limited. |
 | 500 / 503 | `internal` (details are in the daemon log, never in the response), `shutting_down`, `no_credential_store` |
 
 ## Resources

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,12 +41,18 @@ type Config struct {
 	// MagicDNS name, short name and tailnet addresses). A request to the tailnet
 	// listener with any other Host header is refused (DNS rebinding).
 	TailnetHosts []string
+	// MaxFailures failed attempts per caller within FailureWindow are allowed;
+	// after that the caller gets 429 until the window ends (defaults 10 per
+	// minute). A tailnet caller is counted by login, a loopback one by address.
+	MaxFailures   int
+	FailureWindow time.Duration
 }
 
 // Server is the API's HTTP handler.
 type Server struct {
 	cfg    Config
 	log    *slog.Logger
+	fails  *failLimiter
 	mux    *http.ServeMux
 	routes []string
 }
@@ -56,7 +63,7 @@ type Server struct {
 // web pages), and the bearer token must be valid. No response ever carries
 // CORS headers.
 func New(cfg Config) *Server {
-	s := &Server{cfg: cfg, log: cfg.Logger, mux: http.NewServeMux()}
+	s := &Server{cfg: cfg, log: cfg.Logger, mux: http.NewServeMux(), fails: newFailLimiter(cfg.MaxFailures, cfg.FailureWindow)}
 	if s.log == nil {
 		s.log = slog.Default()
 	}
@@ -126,7 +133,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if role == store.RoleNone {
+			key := "login:" + strings.ToLower(caller.Login)
+			if s.limited(w, key) {
+				return
+			}
 			s.refuse(r, caller, "not on the allow-list")
+			if s.fails.fail(key) {
+				s.refuse(r, caller, "too many refused requests; further ones are not recorded until the window ends")
+			}
 			writeError(w, http.StatusForbidden, "not_allowed", "this login is not on the daemon's allow-list: ask its owner to add it")
 			return
 		}
@@ -142,6 +156,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || s.cfg.Token == "" || subtle.ConstantTimeCompare([]byte(got), []byte(s.cfg.Token)) != 1 {
+			// A valid token is never limited (see Accepted risks): only
+			// failures are counted, per address.
+			key := "addr:" + remoteIP(r.RemoteAddr)
+			if s.limited(w, key) {
+				return
+			}
+			if s.fails.fail(key) {
+				s.log.Warn("too many requests with a wrong token", "remote", remoteIP(r.RemoteAddr))
+			}
 			h.Set("WWW-Authenticate", `Bearer realm="aotus"`)
 			writeError(w, http.StatusUnauthorized, "unauthorized", "a valid token is required")
 			return
@@ -152,6 +175,29 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.WithValue(r.Context(), principalKey{}, p)
 	ctx = store.WithCaller(ctx, p.Caller.String())
 	s.mux.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// limited answers 429 when key has used up its failed attempts.
+func (s *Server) limited(w http.ResponseWriter, key string) bool {
+	blocked, wait := s.fails.blocked(key)
+	if !blocked {
+		return false
+	}
+	secs := int(wait.Seconds() + 0.999)
+	if secs < 1 {
+		secs = 1
+	}
+	w.Header().Set("Retry-After", strconv.Itoa(secs))
+	writeError(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed attempts; try again in "+strconv.Itoa(secs)+" s")
+	return true
+}
+
+// remoteIP is the address part of a request's RemoteAddr.
+func remoteIP(remoteAddr string) string {
+	if h, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return h
+	}
+	return remoteAddr
 }
 
 // refuse records a refused remote caller in the audit log.
