@@ -41,6 +41,13 @@ var windowsDirs = []string{"AppData/Roaming/npm"}
 // folder is not on a short PATH (Homebrew on Apple Silicon).
 var systemDirs = []string{"/opt/homebrew/bin", "/usr/local/bin"}
 
+// CLIKinds are the kinds of profile that run an official CLI, in the order a
+// client lists them.
+var CLIKinds = []Kind{KindClaude, KindCodex}
+
+// CLITitle is how the user knows the CLI of a kind ("Claude Code").
+func CLITitle(k Kind) string { return clis[k].title }
+
 // HasCLI reports whether profiles of this kind run an official CLI (an API
 // profile does not).
 func HasCLI(k Kind) bool {

@@ -57,6 +57,11 @@ func (b *Backend) AcceptNotice(id, notice string) error {
 	return do(b, func(ctx context.Context, c *client.Client) error { return c.AcceptNotice(ctx, id, notice) })
 }
 
+// FindCLIs reports the official CLIs on the daemon's computer and their sign-in.
+func (b *Backend) FindCLIs() ([]client.FoundCLI, error) {
+	return call(b, func(ctx context.Context, c *client.Client) ([]client.FoundCLI, error) { return c.FindCLIs(ctx) })
+}
+
 // Notices returns the notices a user can accept, with their exact text.
 func (b *Backend) Notices() ([]client.Notice, error) {
 	return call(b, func(ctx context.Context, c *client.Client) ([]client.Notice, error) { return c.Notices(ctx) })

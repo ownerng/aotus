@@ -5,7 +5,7 @@ import type { Approval, Employee, Profile, Turn, Update, Event as Ev } from "../
 import type { ChatItem } from "./types";
 import { applyEvent, endTurn, markPending } from "./chat";
 
-export type View = "chat" | "terminal" | "profiles" | "new-employee" | "approvals" | "settings" | "connections";
+export type View = "chat" | "terminal" | "profiles" | "new-employee" | "approvals" | "settings" | "connections" | "onboarding";
 
 const FIRST_PAGE = 20;
 const EAGER_TURNS = 8; // answers loaded right away; older ones on demand
@@ -18,6 +18,7 @@ class AppState {
   approvals = $state<Approval[]>([]);
   // notices: id -> the exact text a person accepts (loaded with the rest, once connected)
   notices = $state<Record<string, string>>({});
+  loaded = $state(false); // the first refresh has answered
   settings = $state<Settings>({ keep_in_tray: false } as Settings);
   version = $state("");
 
@@ -57,6 +58,9 @@ class AppState {
       ]);
       [this.employees, this.profiles, this.approvals] = [emps, profs, apps] as [Employee[], Profile[], Approval[]];
       this.notices = Object.fromEntries((notes ?? []).map((n) => [n.id, n.text]));
+      // First run: nothing linked yet on this computer's daemon, and not skipped before.
+      if (!this.loaded && !this.profiles.length && !this.daemon?.remote && !onboardingSkipped()) this.view = "onboarding";
+      this.loaded = true;
       if (this.selected) await this.loadChat(this.selected);
     } catch (err) {
       this.error = String(err);
@@ -181,6 +185,16 @@ class AppState {
     await Shell.SaveSettings(s);
     this.settings = s;
   }
+}
+
+// The first-run flow is skipped for good once the person says so. This is a
+// per-window convenience: it lives in the window's own storage, never the daemon.
+const SKIP_KEY = "aotus.onboarding.skipped";
+export function onboardingSkipped(): boolean {
+  try { return localStorage.getItem(SKIP_KEY) === "1"; } catch { return false; }
+}
+export function skipOnboarding() {
+  try { localStorage.setItem(SKIP_KEY, "1"); } catch { /* storage may be unavailable */ }
 }
 
 export const app = new AppState();

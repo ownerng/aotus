@@ -113,6 +113,63 @@ func (m *Manager) CreateProfile(ctx context.Context, in NewProfile) (provider.Pr
 	return p, nil
 }
 
+// FoundCLI is an official CLI found on the daemon's computer, before any
+// profile exists for it.
+type FoundCLI struct {
+	Kind    Kind
+	Title   string
+	Path    string // empty when not installed
+	Version string
+	// VersionOK is false when it is older than the oldest tested version.
+	VersionOK bool
+	// Login is the sign-in already on this computer (logged_in, logged_out, unknown).
+	Login provider.LoginState
+	// Linked names the profile that already uses this computer's sign-in.
+	Linked string
+	Detail string
+}
+
+// FindCLIs reports the official CLIs installed on the daemon's computer and
+// whether each is already signed in, for a first-run flow. It creates
+// nothing: no profile, no folder, and it never reads a session (it asks the
+// CLI, as Detect does).
+func (m *Manager) FindCLIs(ctx context.Context) ([]FoundCLI, error) {
+	profiles, err := m.svc.Profiles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []FoundCLI
+	for _, k := range provider.CLIKinds {
+		if _, ok := m.providers[k]; !ok {
+			continue
+		}
+		f := FoundCLI{Kind: k, Title: provider.CLITitle(k), Login: provider.LoginUnknown}
+		for _, p := range profiles {
+			if p.Kind == k && p.ComputerLogin {
+				f.Linked = p.Name
+			}
+		}
+		path, err := m.opts.FindCLI(k)
+		if err != nil {
+			f.Detail = err.Error()
+			out = append(out, f)
+			continue
+		}
+		f.Path = path
+		// A probe profile that exists only in memory: the CLI's own folder,
+		// as in the person's terminal (ADR 0015).
+		probe := provider.Profile{ID: "probe-" + string(k), Name: "probe", Kind: k, Binary: path, ComputerLogin: true}
+		d, err := m.opts.Probe(ctx, probe)
+		if err != nil {
+			f.Detail = err.Error()
+		} else {
+			f.Version, f.VersionOK, f.Login, f.Detail = d.Version, d.VersionOK, d.Login, d.Detail
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
 // Detect inspects the CLI of a profile: installed, version, modes and login.
 func (m *Manager) Detect(ctx context.Context, profileID string) (provider.Detection, error) {
 	p, err := m.svc.Profile(ctx, profileID)

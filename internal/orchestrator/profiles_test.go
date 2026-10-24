@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -135,5 +136,58 @@ func TestModeIsKnownBeforeTheSessionStarts(t *testing.T) {
 		if got := r.mgr.ModeOf(ctx, emp); got != tc.want {
 			t.Errorf("%s: ModeOf before the session starts = %q, want %q (a client must know whether to offer a chat or a terminal)", tc.name, got, tc.want)
 		}
+	}
+}
+
+func TestFindCLIsCreatesNothing(t *testing.T) {
+	var probed []provider.Profile
+	r := newRig(t, Options{
+		FindCLI: func(k provider.Kind) (string, error) {
+			if k == provider.KindCodex {
+				return "", fmt.Errorf("%w: Codex CLI (codex) was not found", provider.ErrCLINotInstalled)
+			}
+			return "/opt/found/" + string(k), nil
+		},
+		Probe: func(_ context.Context, p provider.Profile) (provider.Detection, error) {
+			probed = append(probed, p)
+			return provider.Detection{Installed: true, Version: "2.1.310", VersionOK: true, Login: provider.LoginLoggedIn}, nil
+		},
+	})
+	ctx := context.Background()
+	before, _ := r.svc.Profiles(ctx)
+	entries, _ := os.ReadDir(r.layout.ProfilesDir())
+
+	found, err := r.mgr.FindCLIs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 2 || found[0].Kind != provider.KindClaude || found[1].Kind != provider.KindCodex {
+		t.Fatalf("found = %+v; want Claude Code then Codex", found)
+	}
+	c, x := found[0], found[1]
+	if c.Path != "/opt/found/claude" || c.Login != provider.LoginLoggedIn || c.Version != "2.1.310" || c.Title != "Claude Code" {
+		t.Errorf("claude = %+v", c)
+	}
+	if x.Path != "" || !strings.Contains(x.Detail, "not found") {
+		t.Errorf("codex = %+v; want not installed, saying so", x)
+	}
+	// It asked the CLI as the person's terminal would: its own folder.
+	if len(probed) != 1 || !probed[0].ComputerLogin || probed[0].Binary != "/opt/found/claude" {
+		t.Errorf("probed %+v; want one probe of claude on the computer's sign-in", probed)
+	}
+	// And it created nothing.
+	after, _ := r.svc.Profiles(ctx)
+	entriesAfter, _ := os.ReadDir(r.layout.ProfilesDir())
+	if len(after) != len(before) || len(entriesAfter) != len(entries) {
+		t.Fatalf("FindCLIs created something: %d -> %d profiles, %d -> %d folders", len(before), len(after), len(entries), len(entriesAfter))
+	}
+
+	// Once linked, it says by which profile.
+	if _, err := r.mgr.CreateProfile(ctx, NewProfile{Kind: provider.KindClaude, Name: "Mine", ComputerLogin: true}); err != nil {
+		t.Fatal(err)
+	}
+	found, _ = r.mgr.FindCLIs(ctx)
+	if found[0].Linked != "Mine" {
+		t.Fatalf("after linking, claude.Linked = %q; want Mine", found[0].Linked)
 	}
 }

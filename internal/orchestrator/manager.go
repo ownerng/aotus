@@ -57,6 +57,9 @@ type Options struct {
 	// FindCLI locates the official CLI of a profile created without a path
 	// (default provider.FindCLI).
 	FindCLI func(provider.Kind) (string, error)
+	// Probe inspects a CLI that has no profile yet (default: the kind's
+	// provider's Detect). Tests replace it.
+	Probe func(context.Context, provider.Profile) (provider.Detection, error)
 }
 
 func (o Options) withDefaults() Options {
@@ -109,6 +112,15 @@ type Manager struct {
 // provider that runs it.
 func NewManager(svc *Service, providers map[provider.Kind]provider.Provider, opts Options) *Manager {
 	opts = opts.withDefaults()
+	if opts.Probe == nil {
+		opts.Probe = func(ctx context.Context, p provider.Profile) (provider.Detection, error) {
+			prov, ok := providers[p.Kind]
+			if !ok {
+				return provider.Detection{}, fmt.Errorf("%w: %s", ErrNoProvider, p.Kind)
+			}
+			return prov.Detect(ctx, p)
+		}
+	}
 	return &Manager{
 		svc: svc, st: svc.st, ws: svc.ws, providers: providers, opts: opts,
 		hub: newHub(opts.SubscriberBuffer), sem: newFifoSem(opts.MaxConcurrentTurns),

@@ -338,6 +338,27 @@ func (c *Client) AcceptNotice(ctx context.Context, id, notice string) error {
 	return c.do(ctx, "POST", "/profiles/"+url.PathEscape(id)+"/notices", map[string]string{"notice": notice}, nil)
 }
 
+// FoundCLI is an official CLI found on the daemon's computer.
+type FoundCLI struct {
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Installed bool   `json:"installed"`
+	Path      string `json:"path,omitempty"`
+	Version   string `json:"version,omitempty"`
+	VersionOK bool   `json:"version_ok"`
+	Login     string `json:"login"`
+	Linked    string `json:"linked,omitempty"`
+	Detail    string `json:"detail,omitempty"`
+}
+
+// FindCLIs reports the official CLIs on the daemon's computer and whether each
+// is already signed in. It creates nothing.
+func (c *Client) FindCLIs(ctx context.Context) ([]FoundCLI, error) {
+	var out []FoundCLI
+	err := c.do(ctx, "GET", "/clis", nil, &out)
+	return out, err
+}
+
 // Notice is a text the user must read and accept before a mode can be used.
 type Notice struct {
 	ID   string `json:"id"`

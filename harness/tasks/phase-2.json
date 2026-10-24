@@ -983,7 +983,7 @@
     "id": "P2-020",
     "phase": 2,
     "title": "First-run onboarding: find the subscriptions already on this computer and link them",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-019"
     ],
@@ -1043,7 +1043,8 @@
       "internal/client/",
       "cmd/aotus-desktop/",
       "docs/API.md"
-    ]
+    ],
+    "completed_at": "2026-10-24"
   },
   {
     "id": "P2-021",

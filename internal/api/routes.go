@@ -47,6 +47,7 @@ func (s *Server) register() {
 
 	s.handle("GET "+base+"/me", s.me)
 	s.handle("GET "+base+"/notices", s.notices)
+	s.handleOwner("GET "+base+"/clis", s.findCLIs)
 	s.handleOwner("GET "+base+"/access", s.listAccess)
 	s.handleOwner("POST "+base+"/access", s.addAccess)
 	s.handleOwner("DELETE "+base+"/access/{login}", s.removeAccess)
@@ -142,6 +143,33 @@ func toProfileDTO(p orchestrator.Profile) profileDTO {
 		BaseURL: p.BaseURL, AcceptedNotices: notices, ExtraEnv: p.ExtraEnv, TermsCheckedAt: p.TermsCheckedAt,
 		ComputerLogin: p.ComputerLogin,
 	}
+}
+
+// findCLIs reports the official CLIs on the daemon's computer and whether each
+// is already signed in, for the first run. It creates nothing.
+func (s *Server) findCLIs(w http.ResponseWriter, r *http.Request) {
+	type cliDTO struct {
+		Kind      string `json:"kind"`
+		Title     string `json:"title"`
+		Installed bool   `json:"installed"`
+		Path      string `json:"path,omitempty"`
+		Version   string `json:"version,omitempty"`
+		VersionOK bool   `json:"version_ok"`
+		Login     string `json:"login"`
+		Linked    string `json:"linked,omitempty"`
+		Detail    string `json:"detail,omitempty"`
+	}
+	found, err := s.cfg.Manager.FindCLIs(r.Context())
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	out := make([]cliDTO, len(found))
+	for i, f := range found {
+		out[i] = cliDTO{Kind: string(f.Kind), Title: f.Title, Installed: f.Path != "", Path: f.Path, Version: f.Version,
+			VersionOK: f.VersionOK, Login: string(f.Login), Linked: f.Linked, Detail: f.Detail}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // notices lists the notices a user can accept, with their exact text.

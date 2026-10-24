@@ -9,6 +9,7 @@
   import Approvals from "./lib/Approvals.svelte";
   import Settings from "./lib/Settings.svelte";
   import Connections from "./lib/Connections.svelte";
+  import Onboarding from "./lib/Onboarding.svelte";
   import Mark from "./lib/Mark.svelte";
   import Avatar from "./lib/Avatar.svelte";
   import Icon from "./lib/Icon.svelte";
@@ -91,6 +92,8 @@
           <TerminalView label={emp.name} open={(r, c) => Backend.OpenTerminal(emp.id, r, c)} />
         {/key}
       {/if}
+    {:else if app.view === "onboarding"}
+      <Onboarding />
     {:else if app.view === "new-employee"}
       <NewEmployee />
     {:else if app.view === "approvals"}

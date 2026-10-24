@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -601,5 +602,44 @@ func TestNoticesAreServedWithTheirText(t *testing.T) {
 	a.call(t, "GET", "/api/v1/notices", nil, 200, &ns)
 	if len(ns) != 1 || ns[0].ID != provider.NoticeClaudeHeadless || ns[0].Text != provider.ClaudeHeadlessNotice {
 		t.Fatalf("GET /notices = %+v; want the Claude notice with its exact text", ns)
+	}
+}
+
+func TestFindCLIsReportsInstalledAndSignedIn(t *testing.T) {
+	a := newAPIWith(t, orchestrator.Options{
+		FindCLI: func(k provider.Kind) (string, error) {
+			if k == provider.KindCodex {
+				return "", fmt.Errorf("%w: Codex CLI (codex) was not found on the daemon's PATH", provider.ErrCLINotInstalled)
+			}
+			return "/home/me/.local/bin/claude", nil
+		},
+		Probe: func(context.Context, provider.Profile) (provider.Detection, error) {
+			return provider.Detection{Installed: true, Version: "2.1.310", VersionOK: true, Login: provider.LoginLoggedIn}, nil
+		},
+	})
+	resp, b := a.raw(t, "GET", "/api/v1/clis", token, nil, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("GET /clis = %d %s", resp.StatusCode, b)
+	}
+	var raw []map[string]any
+	if err := json.Unmarshal(b, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) != 2 || raw[0]["kind"] != "claude" || raw[0]["installed"] != true || raw[0]["login"] != "logged_in" || raw[0]["version"] != "2.1.310" {
+		t.Fatalf("claude entry = %v", raw)
+	}
+	if raw[1]["kind"] != "codex" || raw[1]["installed"] != false || !strings.Contains(fmt.Sprint(raw[1]["detail"]), "not found") {
+		t.Fatalf("codex entry = %v", raw[1])
+	}
+	// Nothing was created.
+	var profiles []any
+	a.call(t, "GET", "/api/v1/profiles", nil, 200, &profiles)
+	if len(profiles) != 0 {
+		t.Fatalf("GET /clis created profiles: %v", profiles)
+	}
+	// Only the owner may look at the daemon's computer.
+	a.setUpAccess(t)
+	if code, _ := a.asTailnet(t, anaLogin, "laptop", "GET", "/api/v1/clis", nil, nil); code != 403 {
+		t.Fatalf("a guest got GET /clis = %d; want 403", code)
 	}
 }
