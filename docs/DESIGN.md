@@ -1,25 +1,27 @@
 # Design: the desktop app's visual language
 
-Aotus should feel calm and quiet, like a tool you keep open all day, not like a dashboard. The reference is Grok Bot (`docs/PRD.md`), the product that validated the category. We take its **visual language**: near-black monochrome surfaces, one white primary action, large regular-weight type, thin borders and generous rounded fields. We do **not** take its brand: no logo, mascot, name, icon, illustration or artwork of Grok Bot, xAI or Cursor appears in Aotus. Aotus has its own mark.
+Aotus should feel calm and quiet, like a tool you keep open all day, not like a dashboard. Its identity is **night amber**, taken from the aotus, the night monkey: warm ink-black surfaces and the amber of its large eyes.
+
+Grok Bot (`docs/PRD.md`), the product that validated the category, is an **inspiration, not a model to copy**. From it we keep the restraint: dark surfaces, one clear primary action per view, large regular-weight type, thin borders, rows rather than tables. What makes Aotus its own is the warm ink instead of neutral grey, amber instead of white for action and activity, the blinking eyes, the lowercase wordmark and its words (teammates, a soul). There is **no logo**, mascot, name, icon, illustration or artwork of Grok Bot, xAI or Cursor anywhere in Aotus.
 
 Everything lives in `cmd/aotus-desktop/frontend/src/app.css` as CSS tokens. A view never hard-codes a colour, radius or font.
 
 ## Rules
 
-1. **Monochrome.** Surfaces go from `--bg` (#0b0b0b) through `--side`, `--surface`, `--surface-2` and `--surface-3`. Text is `--text`, with `--text-2` for secondary and `--text-3` for faint. There is no accent colour.
-2. **Colour means status, nothing else.** `--ok` marks a running daemon or session, `--warn` a warning and `--bad` an error, or a destructive action while it is pointed at. A colour never appears for decoration.
-3. **One primary action per view.** `button.primary` is white with black text (Link, Create, Allow once, Done). Everything else is `button` (solid dark grey) or `button.ghost` (text only). Destructive actions (`button.danger`) stay grey until hovered.
+1. **Warm ink, otherwise monochrome.** Surfaces go from `--bg` (#0e0c0a) through `--side`, `--surface`, `--surface-2` and `--surface-3`, all a little warm. Text is `--text` (warm white), with `--text-2` for secondary and `--text-3` for faint.
+2. **Amber means action and activity.** `--amber` (#f2a93b) is the one primary action of a view, work in progress (the breathing dot, the streaming cursor), focus, the active tab and a switch that is on. Nothing else is amber. Green (`--ok`) and red (`--bad`) only say status: a running daemon, an error, a destructive action while it is pointed at. No colour is decoration.
+3. **One primary action per view.** `button.primary` is amber with ink text (Link, Set up my teammate, Hire, Allow once, Done). Everything else is `button` (solid dark warm grey) or `button.ghost` (text only). Destructive actions (`button.danger`) stay grey until hovered.
 4. **Type.** System sans (SF Pro, Inter or Segoe UI), 15 px body. Headings are 22 px at weight 500. Never bold walls of text, never uppercase labels. Labels sit above fields in grey at 13 px. Code, paths and commands use `--mono`.
 5. **Shape.** Radii `--r-sm` 8, `--r` 12, `--r-lg` 16, `--r-xl` 22 (the composer). Use a 1 px border in `--line` or `--line-strong`, never a drop shadow.
 6. **Space.** Pages have 36–40 px of padding and a 760 px reading column. Rows are at least 36 px high. When in doubt, leave more room.
-7. **Lists, not tables.** A row is a 44 px tile, a title, a grey description and its actions on the right (`.lrow`, `.tile`). Grok Bot's plugin list is the model.
-8. **Say status in words.** The sidebar reads "Working…", "Paused" or the role, not a colour code. A dot only appears when something is happening (white, breathing) or stopped (hollow). The connection dot is green or red.
-9. **Conversation.** The user's messages sit in a grey bubble on the right. The employee's answer is plain text on the left with no label. Tool activity is a quiet chip, and a stopped turn is a faint line. The composer is a rounded box with a round white send button.
-10. **The CLI's own screen is framed like a window.** A black frame with a thin chrome bar shows what runs and reminds that closing the view leaves it running.
+7. **Lists, not tables.** A row is a 44 px tile, a title, a grey description and its actions on the right (`.lrow`, `.tile`).
+8. **Say status in words.** The sidebar reads "Working…", "Paused" or the role, not a colour code. A dot only appears when something is happening (amber, breathing) or stopped (hollow). The connection dot is green or red.
+9. **Conversation.** The person's messages sit in a warm grey bubble on the right. The teammate's answer is plain text on the left with no label. Tool activity is a quiet chip, and a stopped turn is a faint line. The composer is a rounded box with a round amber send button, and the streaming cursor is amber.
+10. **The CLI's own screen is framed like a window.** A warm black frame with a thin chrome bar shows what runs and reminds that closing the view leaves it running.
 
-## The Aotus mark
+## The Aotus mark and wordmark
 
-`Mark.svelte` draws two large round eyes. The aotus is the night monkey, known for its huge eyes and for working at night, while you sleep. The mark is white on dark, and its pupils drift slowly in the sidebar. Employees have monochrome initials (`Avatar.svelte`), not generated faces or colours. Icons (`Icon.svelte`) are our own 1.6 px line drawings.
+`Mark.svelte` draws the night monkey's two large amber eyes: the aotus works at night, while you sleep, which is what teammates do. The eyes blink about every six seconds and their pupils drift slowly in the sidebar. Motion stops for people who ask for reduced motion. The wordmark is `aotus` in lowercase, set tight and a little heavy (`.wordmark`). Teammates have warm monochrome initials (`Avatar.svelte`), not generated faces or colours. Icons (`Icon.svelte`) are our own 1.6 px line drawings. The tray icon is an amber disc.
 
 ## When adding a view
 

@@ -125,7 +125,7 @@ func main() {
 		Height:           wantHeight,
 		MinWidth:         minWidth,
 		MinHeight:        minHeight,
-		BackgroundColour: application.NewRGB(11, 11, 11),
+		BackgroundColour: application.NewRGB(14, 12, 10),
 		URL:              "/",
 	})
 	// Once the screens are known, open inside the work area of the window's
@@ -165,7 +165,7 @@ func main() {
 func trayIcon() []byte {
 	const n = 32
 	img := image.NewRGBA(image.Rect(0, 0, n, n))
-	c := color.RGBA{R: 0xd9, G: 0x8a, B: 0x3d, A: 0xff}
+	c := color.RGBA{R: 0xf2, G: 0xa9, B: 0x3b, A: 0xff} // night amber (docs/DESIGN.md)
 	for y := range n {
 		for x := range n {
 			dx, dy := float64(x)-15.5, float64(y)-15.5

@@ -1113,7 +1113,7 @@
     "id": "P2-022",
     "phase": 2,
     "title": "Aotus' own identity: night amber",
-    "status": "todo",
+    "status": "done",
     "depends_on": [
       "P2-016"
     ],
@@ -1148,6 +1148,7 @@
     "paths": [
       "cmd/aotus-desktop/frontend/",
       "docs/DESIGN.md"
-    ]
+    ],
+    "completed_at": "2026-10-24"
   }
 ]

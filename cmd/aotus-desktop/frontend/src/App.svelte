@@ -35,7 +35,7 @@
 
 <div class="shell">
   <aside class="side">
-    <div class="brand"><Mark size={18} looking /><span>Aotus</span></div>
+    <div class="brand"><Mark size={18} looking /><span class="wordmark">aotus</span></div>
     <nav>
       <button class="item new" title="New teammate" class:on={app.view === "new-employee"} onclick={() => go("new-employee")}><Icon name="plus" /><span class="grow">New teammate</span></button>
       {#if app.employees.length}<div class="heading">Teammates</div>{/if}

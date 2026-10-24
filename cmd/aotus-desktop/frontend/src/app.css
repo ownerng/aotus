@@ -1,15 +1,18 @@
-/* Aotus visual language (docs/DESIGN.md): monochrome surfaces, white primary
-   actions, colour only for status. Every view uses these tokens. */
+/* Aotus identity, "night amber" (docs/DESIGN.md): warm ink surfaces, and the
+   amber of the night monkey's eyes for the one primary action and for work in
+   progress. Green and red only say status. Every view uses these tokens. */
 :root {
-  /* surfaces, darkest to lightest */
-  --bg: #0b0b0b; --side: #101010; --surface: #171717; --surface-2: #212121; --surface-3: #2c2c2c;
-  --line: #242424; --line-strong: #353535;
-  /* text */
-  --text: #f2f2f2; --text-2: #a1a1a1; --text-3: #6e6e6e;
-  /* status only: never decoration */
-  --ok: #5cc47f; --warn: #e2b55a; --bad: #f07070;
+  /* warm ink surfaces, darkest to lightest */
+  --bg: #0e0c0a; --side: #12100d; --surface: #191612; --surface-2: #221e19; --surface-3: #2d2822;
+  --line: #26221d; --line-strong: #3a342c;
+  /* warm text */
+  --text: #f3eee6; --text-2: #a9a196; --text-3: #71695f;
+  /* amber: action and activity, never decoration */
+  --amber: #f2a93b; --amber-bright: #ffbd55; --amber-ink: #1b1206; --amber-soft: #f2a93b24;
+  /* status */
+  --ok: #6cc489; --warn: #e2b55a; --bad: #ef7a6e;
   /* the one primary action per view */
-  --primary: #f5f5f5; --primary-ink: #0b0b0b;
+  --primary: var(--amber); --primary-ink: var(--amber-ink);
   --r-sm: 8px; --r: 12px; --r-lg: 16px; --r-xl: 22px;
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
@@ -22,8 +25,8 @@ body {
   background: var(--bg); color: var(--text); overflow: hidden;
   font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
 }
-::selection { background: #ffffff33; }
-:focus-visible { outline: 2px solid #ffffff66; outline-offset: 2px; }
+::selection { background: #f2a93b55; }
+:focus-visible { outline: 2px solid #f2a93b99; outline-offset: 2px; }
 
 /* ---- controls ---- */
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -34,7 +37,7 @@ button {
 button:hover:not(:disabled) { background: var(--surface-3); }
 button:disabled { opacity: .4; cursor: default; }
 button.primary { background: var(--primary); color: var(--primary-ink); font-weight: 500; }
-button.primary:hover:not(:disabled) { background: #ffffff; }
+button.primary:hover:not(:disabled) { background: var(--amber-bright); }
 button.primary:disabled { background: var(--surface-2); color: var(--text-3); opacity: 1; }
 button.ghost { background: none; color: var(--text-2); }
 button.ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
@@ -49,16 +52,16 @@ input, select, textarea {
   padding: 10px 14px; width: 100%; transition: border-color .12s ease;
 }
 input::placeholder, textarea::placeholder { color: var(--text-3); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: #6a6a6a; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #f2a93b88; }
 select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--text-2) 50%), linear-gradient(135deg, var(--text-2) 50%, transparent 50%);
   background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
 label { display: block; color: var(--text-2); font-size: 13px; margin: 18px 0 8px; }
 
 /* toggle switch: <input type="checkbox" class="switch"> */
 input.switch { appearance: none; width: 40px; height: 24px; padding: 0; border: 0; border-radius: 999px; background: var(--surface-3); position: relative; cursor: pointer; flex: none; transition: background .15s ease; }
-input.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #8a8a8a; transition: transform .15s ease, background .15s ease; }
-input.switch:checked { background: #5a5a5a; }
-input.switch:checked::after { transform: translateX(16px); background: #fff; }
+input.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-3); transition: transform .15s ease, background .15s ease; }
+input.switch:checked { background: var(--amber); }
+input.switch:checked::after { transform: translateX(16px); background: var(--amber-ink); }
 
 h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.015em; margin: 0 0 6px; }
 h2 { font-size: 15px; font-weight: 500; margin: 0 0 10px; }
@@ -73,7 +76,9 @@ p { margin: 0 0 8px; }
 /* ---- shell ---- */
 .shell { display: grid; grid-template-columns: 264px 1fr; height: 100%; }
 .side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; padding: 14px 10px 10px; }
-.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+/* the wordmark: lowercase, tight, a little heavy */
+.wordmark { font-size: 19px; font-weight: 650; letter-spacing: -0.035em; text-transform: lowercase; line-height: 1; }
 .side nav { overflow: auto; flex: 1; min-height: 0; }
 .side .heading { font-size: 12px; color: var(--text-3); margin: 18px 8px 6px; }
 .item { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border-radius: 10px; padding: 7px 8px; color: var(--text-2); }
@@ -88,7 +93,7 @@ p { margin: 0 0 8px; }
 /* status: a dot only when something is happening or wrong */
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
 .dot.running { background: var(--ok); } .dot.paused { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-3); }
-.dot.working { background: #fff; animation: breathe 1.4s ease-in-out infinite; }
+.dot.working { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); animation: breathe 1.4s ease-in-out infinite; }
 @keyframes breathe { 50% { opacity: .25; } }
 
 /* avatar: monochrome initials */
@@ -110,7 +115,7 @@ p { margin: 0 0 8px; }
 .tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-left: auto; }
 .tabs button { background: none; color: var(--text-2); border-radius: 9px; padding: 5px 14px; }
 .tabs button:hover:not(:disabled) { background: none; color: var(--text); }
-.tabs button.on { background: var(--surface-3); color: var(--text); }
+.tabs button.on { background: var(--surface-3); color: var(--text); box-shadow: inset 0 -2px 0 var(--amber); }
 
 /* list rows: tile, title, description, action */
 .list { display: flex; flex-direction: column; gap: 4px; }
@@ -127,7 +132,7 @@ p { margin: 0 0 8px; }
 .banner.bad { color: var(--bad); }
 .notice { background: var(--surface-2); border-radius: var(--r); padding: 12px 14px; font-size: 14px; color: var(--text-2); margin-top: 12px; }
 .notice button { background: var(--surface-3); color: var(--text); }
-.notice button:hover:not(:disabled) { background: #3a3a3a; }
+.notice button:hover:not(:disabled) { background: var(--line-strong); }
 
 /* ---- conversation ---- */
 .msgs { flex: 1; min-height: 0; overflow: auto; }
@@ -137,27 +142,27 @@ p { margin: 0 0 8px; }
 .msg.user .body { background: var(--surface-2); border-radius: 18px; padding: 9px 15px; max-width: 80%; }
 .msg.assistant .body { padding: 2px 0; }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; }
-.cursor { display: inline-block; width: 8px; height: 15px; background: var(--text); vertical-align: -2px; margin-left: 2px; animation: breathe 1s steps(1) infinite; }
+.cursor { display: inline-block; width: 8px; height: 15px; background: var(--amber); vertical-align: -2px; margin-left: 2px; animation: breathe 1s steps(1) infinite; }
 .chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; background: var(--side); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font-size: 13px; color: var(--text-2); }
 .chip .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip svg { width: 14px; height: 14px; flex: none; }
 .msg .status { font-size: 13px; color: var(--text-3); }
-.msg .err { background: #f0707012; border: 1px solid #f0707033; border-radius: var(--r); padding: 8px 12px; }
+.msg .err { background: #ef7a6e12; border: 1px solid #ef7a6e33; border-radius: var(--r); padding: 8px 12px; }
 
 .composer-wrap { padding: 12px 24px 20px; }
 .composer { max-width: 760px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-xl); padding: 10px 10px 10px 18px; display: flex; gap: 8px; align-items: flex-end; transition: border-color .12s ease; }
-.composer:focus-within { border-color: #5a5a5a; }
+.composer:focus-within { border-color: #f2a93b77; }
 .composer textarea { resize: none; height: 48px; border: 0; padding: 4px 0; background: none; }
 .composer textarea:focus { border: 0; }
 .composer-wrap .hint { max-width: 760px; margin: 8px auto 0; font-size: 12px; color: var(--text-3); text-align: center; }
 
 /* ---- the CLI's own screen, framed like a window ---- */
-.term-frame { flex: 1; min-height: 0; margin: 16px 20px 20px; background: #000; border: 1px solid var(--line-strong); border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column; }
-.term-frame .chrome { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--text-3); background: #070707; }
-.term { flex: 1; min-height: 0; padding: 10px 12px; background: #000; }
+.term-frame { flex: 1; min-height: 0; margin: 16px 20px 20px; background: #090705; border: 1px solid var(--line-strong); border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column; }
+.term-frame .chrome { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--text-3); background: #0a0806; }
+.term { flex: 1; min-height: 0; padding: 10px 12px; background: #090705; }
 
 /* ---- approvals ---- */
-.approval .cmd { font-family: var(--mono); font-size: 13px; background: #000; border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin: 12px 0 16px; overflow-wrap: anywhere; color: var(--text); }
+.approval .cmd { font-family: var(--mono); font-size: 13px; background: #090705; border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin: 12px 0 16px; overflow-wrap: anywhere; color: var(--text); }
 
 /* ---- empty states ---- */
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 72px 20px; color: var(--text-2); }
@@ -211,5 +216,5 @@ p { margin: 0 0 8px; }
 .title-input { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; font-size: 22px; font-weight: 500; letter-spacing: -0.015em; }
 .role-input { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; color: var(--text-2); }
 .title-input:hover, .role-input:hover { border-bottom-color: var(--line-strong); }
-.title-input:focus, .role-input:focus { border-bottom-color: #6a6a6a; }
+.title-input:focus, .role-input:focus { border-bottom-color: var(--amber); }
 button.chip:hover { color: var(--text); border-color: var(--line-strong); }

@@ -13,7 +13,7 @@
   let status = $state("");
 
   onMount(() => {
-    const term = new Terminal({ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontSize: 13, cursorBlink: true, theme: { background: "#000000", foreground: "#e8e8e8", cursor: "#f5f5f5", selectionBackground: "#ffffff33" } });
+    const term = new Terminal({ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontSize: 13, cursorBlink: true, theme: { background: "#090705", foreground: "#efe9e0", cursor: "#f2a93b", cursorAccent: "#090705", selectionBackground: "#f2a93b55" } });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(host);
